@@ -1,4 +1,4 @@
-import React, { useRef } from 'react'
+import React, { useRef, useMemo } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { PerspectiveCamera, Grid } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
@@ -55,21 +55,23 @@ function FlightTunnel() {
     // Logic can be added here if the tunnel needs to react to live GPS
   })
   
-  // Calculate a simplified 3D path to the "target"
-  // In a real app, this would use proper GPS-to-Cartesian conversion (UTM)
-  const targetPos = new THREE.Vector3(2, 0, -20) // Simulated target relative to drone
-  
-  const points = []
-  for (let i = 0; i <= 10; i++) {
-    const t = i / 10
-    points.push(new THREE.Vector3(
-      t * targetPos.x,
-      t * targetPos.y + Math.sin(t * Math.PI) * 2, // Slight curve
-      t * targetPos.z
-    ))
-  }
-  
-  const curve = new THREE.CatmullRomCurve3(points)
+  // Memoize geometry and points to prevent re-creation
+  const { curve, points } = useMemo(() => {
+    const targetPos = new THREE.Vector3(2, 0, -20)
+    const pts = []
+    for (let i = 0; i <= 10; i++) {
+      const t = i / 10
+      pts.push(new THREE.Vector3(
+        t * targetPos.x,
+        t * targetPos.y + Math.sin(t * Math.PI) * 2,
+        t * targetPos.z
+      ))
+    }
+    return { 
+      curve: new THREE.CatmullRomCurve3(pts),
+      points: pts
+    }
+  }, [])
 
   return (
     <group ref={meshRef}>
@@ -81,14 +83,14 @@ function FlightTunnel() {
       
       {/* Holographic "rings" along the path */}
       {points.filter((_, i) => i % 2 === 0).map((p, i) => (
-        <mesh key={i} position={p} rotation={[0, 0, 0]}>
+        <mesh key={i} position={p}>
           <ringGeometry args={[0.5, 0.55, 32]} />
           <meshBasicMaterial color="#39FF14" transparent opacity={0.2} side={THREE.DoubleSide} />
         </mesh>
       ))}
 
       {/* Target Marker */}
-      <mesh position={targetPos}>
+      <mesh position={[2, 0, -20]}>
         <sphereGeometry args={[0.3, 16, 16]} />
         <meshBasicMaterial color="#FFD700" />
       </mesh>

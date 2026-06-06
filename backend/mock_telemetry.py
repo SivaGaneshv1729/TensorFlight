@@ -5,8 +5,8 @@ import httpx
 
 async def simulate_drone():
     url = "http://127.0.0.1:8000/telemetry/update"
+    semaphore = asyncio.Semaphore(5) # Limit concurrent POST requests
 
-    
     start_lat = 12.9716
     start_lon = 77.5946
     alt = 10.0
@@ -15,6 +15,13 @@ async def simulate_drone():
     print("🚀 Telemetry Simulator Started...")
     
     async with httpx.AsyncClient() as client:
+        async def send_data(payload):
+            async with semaphore:
+                try:
+                    await client.post(url, json=payload, timeout=1.0)
+                except Exception:
+                    pass
+
         while True:
             # Simulate a slow circular flight path
             heading = (heading + 2) % 360
@@ -45,15 +52,10 @@ async def simulate_drone():
                 }
             }
             
-            try:
-                # Decouple flight simulation from network latency
-                asyncio.create_task(client.post(url, json=payload))
-            except Exception as e:
-                print(f"\n❌ Connection failed: {e}")
-                await asyncio.sleep(2) # Wait longer before retrying on failure
+            # Fire and forget but with a limit on concurrency
+            asyncio.create_task(send_data(payload))
             
             print(f"Drone at: {curr_lat:.6f}, {curr_lon:.6f} | Heading: {heading}°", end="\r")
-            
             await asyncio.sleep(0.1) # 10Hz
 
 if __name__ == "__main__":
