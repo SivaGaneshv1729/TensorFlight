@@ -4,6 +4,7 @@ import useTelemetryStore from './store/useTelemetryStore'
 export default function useWebSocket() {
   const setTelemetry = useTelemetryStore((state) => state.setTelemetry)
   const socketRef = useRef(null)
+  const reconnectCount = useRef(0)
 
   useEffect(() => {
     let timeoutId;
@@ -11,16 +12,22 @@ export default function useWebSocket() {
     function connect() {
       const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
       console.log(`🔌 Attempting WebSocket connection to ${host}:8000...`);
+      
       const socket = new WebSocket(`ws://${host}:8000/ws/telemetry`)
       socketRef.current = socket
 
       socket.onopen = () => {
         console.log('✅ WebSocket Connected Successfully');
+        reconnectCount.current = 0; // Reset count on successful connection
       };
 
       socket.onmessage = (event) => {
-        const data = JSON.parse(event.data)
-        setTelemetry(data)
+        try {
+          const data = JSON.parse(event.data)
+          setTelemetry(data)
+        } catch (err) {
+          console.error('Failed to parse telemetry data:', err)
+        }
       }
 
       socket.onerror = (error) => {
@@ -28,8 +35,13 @@ export default function useWebSocket() {
       }
 
       socket.onclose = () => {
-        console.warn('❌ WebSocket disconnected. Reconnecting in 2s...');
-        timeoutId = setTimeout(connect, 2000)
+        const backoff = Math.min(1000 * Math.pow(2, reconnectCount.current), 30000);
+        console.warn(`❌ WebSocket disconnected. Reconnecting in ${backoff / 1000}s...`);
+        
+        timeoutId = setTimeout(() => {
+          reconnectCount.current++;
+          connect();
+        }, backoff);
       }
     }
 

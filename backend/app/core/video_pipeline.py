@@ -1,17 +1,26 @@
-# Placeholder for OpenCV video processing
+# Enhanced OpenCV video processing pipeline
 import cv2
 import numpy as np
+from typing import Optional
 
 class VideoPipeline:
-    def __init__(self):
-        self.cap = None
+    def __init__(self, source: str = "0"):
+        self.source = source
+        self.cap: Optional[cv2.VideoCapture] = None
+
+    def __enter__(self):
+        self.start_stream(self.source)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.release()
 
     def start_stream(self, source: str = "0"):
         if isinstance(source, str) and source.isdigit():
             source = int(source)
         self.cap = cv2.VideoCapture(source)
 
-    def calculate_vari(self, frame):
+    def calculate_vari(self, frame: np.ndarray) -> np.ndarray:
         """
         Calculates Visible Atmospherically Resistant Index (VARI)
         Formula: (Green - Red) / (Green + Red - Blue)
@@ -29,11 +38,9 @@ class VideoPipeline:
         vari_norm = cv2.normalize(vari, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
         
         # Apply a colormap (Magma or Jet) to highlight stress
-        vari_colored = cv2.applyColorMap(vari_norm, cv2.COLORMAP_JET)
-        
-        return vari_colored
+        return cv2.applyColorMap(vari_norm, cv2.COLORMAP_JET)
 
-    def process_frame(self, frame, mode="normal"):
+    def process_frame(self, frame: np.ndarray, mode: str = "normal") -> np.ndarray:
         if mode == "vari":
             return self.calculate_vari(frame)
         return frame
@@ -41,3 +48,4 @@ class VideoPipeline:
     def release(self):
         if self.cap:
             self.cap.release()
+            self.cap = None
