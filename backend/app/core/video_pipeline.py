@@ -7,6 +7,8 @@ class VideoPipeline:
         self.cap = None
 
     def start_stream(self, source: str = "0"):
+        if isinstance(source, str) and source.isdigit():
+            source = int(source)
         self.cap = cv2.VideoCapture(source)
 
     def calculate_vari(self, frame):

@@ -46,7 +46,12 @@ function HUDOverlay() {
 }
 
 function FlightTunnel() {
-  const telemetry = useTelemetryStore((state) => state.telemetry)
+  const meshRef = useRef()
+  
+  useFrame(() => {
+    const telemetry = useTelemetryStore.getState().telemetry
+    // Logic can be added here if the tunnel needs to react to live GPS
+  })
   
   // Calculate a simplified 3D path to the "target"
   // In a real app, this would use proper GPS-to-Cartesian conversion (UTM)

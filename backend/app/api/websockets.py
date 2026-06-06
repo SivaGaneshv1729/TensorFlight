@@ -20,14 +20,18 @@ latest_telemetry = {
     }
 }
 
+active_connections: list[WebSocket] = []
+
 @router.websocket("/ws/telemetry")
 async def telemetry_websocket(websocket: WebSocket):
     await websocket.accept()
+    active_connections.append(websocket)
     try:
         while True:
             await websocket.send_json(latest_telemetry)
             await asyncio.sleep(0.05) # 20Hz update for smooth UI
     except WebSocketDisconnect:
+        active_connections.remove(websocket)
         print("Telemetry WebSocket disconnected")
 
 @router.post("/telemetry/update")
