@@ -38,7 +38,9 @@ export default function useWebSocket() {
     return () => {
       if (socketRef.current) {
         socketRef.current.onclose = null // Prevent reconnect on unmount
-        socketRef.current.close()
+        if (socketRef.current.readyState === WebSocket.OPEN) {
+          socketRef.current.close()
+        }
       }
       clearTimeout(timeoutId)
     }

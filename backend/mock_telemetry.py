@@ -46,9 +46,8 @@ async def simulate_drone():
             }
             
             try:
-                resp = await client.post(url, json=payload)
-                if resp.status_code != 200:
-                    print(f"\n❌ Error: Backend returned {resp.status_code}")
+                # Decouple flight simulation from network latency
+                asyncio.create_task(client.post(url, json=payload))
             except Exception as e:
                 print(f"\n❌ Connection failed: {e}")
                 await asyncio.sleep(2) # Wait longer before retrying on failure
