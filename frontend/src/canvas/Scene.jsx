@@ -6,17 +6,19 @@ import * as THREE from 'three'
 
 function HUDOverlay() {
   const meshRef = useRef()
-  const telemetry = useTelemetryStore((state) => state.telemetry)
   
   useFrame(() => {
-    if (meshRef.current) {
+    const telemetry = useTelemetryStore.getState().telemetry
+    if (meshRef.current && telemetry.is_active) {
       // Convert degrees to radians for Three.js
       const { pitch, roll, yaw_heading } = telemetry.drone_state.orientation_deg
       
-      // Update rotation based on telemetry
-      meshRef.current.rotation.x = THREE.MathUtils.degToRad(pitch)
-      meshRef.current.rotation.z = THREE.MathUtils.degToRad(-roll)
-      meshRef.current.rotation.y = THREE.MathUtils.degToRad(-yaw_heading)
+      const pitchRad = THREE.MathUtils.degToRad(pitch)
+      const rollRad = THREE.MathUtils.degToRad(-roll)
+      const yawRad = THREE.MathUtils.degToRad(-yaw_heading)
+      
+      // Update rotation using 'YXZ' order to prevent Gimbal Lock
+      meshRef.current.rotation.set(pitchRad, yawRad, rollRad, 'YXZ')
       
       // Update altitude
       meshRef.current.position.y = telemetry.drone_state.gps.altitude_relative_m * 0.1
@@ -68,9 +70,9 @@ function FlightTunnel() {
   }
   
   const curve = new THREE.CatmullRomCurve3(points)
-  
+
   return (
-    <group>
+    <group ref={meshRef}>
       {/* The main path line */}
       <mesh>
         <tubeGeometry args={[curve, 20, 0.1, 8, false]} />
