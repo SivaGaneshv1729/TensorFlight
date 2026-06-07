@@ -11,9 +11,10 @@ export default function useWebSocket() {
     
     function connect() {
       const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-      console.log(`🔌 Attempting WebSocket connection to ${host}:8000...`);
+      const url = `ws://${host}:8000/ws/telemetry`;
+      console.log(`🔌 Attempting WebSocket connection to ${url}...`);
       
-      const socket = new WebSocket(`ws://${host}:8000/ws/telemetry`)
+      const socket = new WebSocket(url)
       socketRef.current = socket
 
       socket.onopen = () => {
@@ -24,6 +25,7 @@ export default function useWebSocket() {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
+          console.debug('📡 Telemetry data received', data);
           setTelemetry(data)
         } catch (err) {
           console.error('Failed to parse telemetry data:', err)

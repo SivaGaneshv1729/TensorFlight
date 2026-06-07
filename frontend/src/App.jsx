@@ -5,22 +5,16 @@ import Sidebar from './components/Sidebar'
 import Scene from './canvas/Scene'
 
 import useWebSocket from './useWebSocket'
+import useKeyboardControls from './useKeyboardControls'
 
 import useTelemetryStore from './store/useTelemetryStore'
 
 function App() {
   useWebSocket()
+  useKeyboardControls()
   
-  // Use shallow selectors to prevent App from re-rendering on every telemetry update
-  const latitude = useTelemetryStore((state) => state.telemetry.drone_state.gps.latitude)
-  const altitude = useTelemetryStore((state) => state.telemetry.drone_state.gps.altitude_relative_m)
-
   return (
     <div className="relative w-screen h-screen bg-black text-white overflow-hidden font-sans">
-      {/* DEBUG READOUT - REMOVE LATER */}
-      <div className="absolute top-0 left-1/2 -translate-x-1/2 z-[100] bg-red-600/80 text-[10px] p-1 font-mono">
-        LAT: {latitude.toFixed(4)} | ALT: {altitude.toFixed(1)}
-      </div>
       {/* 3D Holographic Overlay */}
       <div className="absolute inset-0 z-10 pointer-events-none">
         <Scene />

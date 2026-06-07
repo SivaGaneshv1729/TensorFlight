@@ -2,8 +2,11 @@ import React from 'react'
 import useTelemetryStore from '../store/useTelemetryStore'
 
 export default function HUD() {
-  const telemetry = useTelemetryStore((state) => state.telemetry)
-  const isLive = telemetry.is_active
+  const altitude = useTelemetryStore((state) => state.telemetry.drone_state.gps.altitude_relative_m)
+  const battery = useTelemetryStore((state) => state.telemetry.drone_state.battery_percentage)
+  const lat = useTelemetryStore((state) => state.telemetry.drone_state.gps.latitude)
+  const lon = useTelemetryStore((state) => state.telemetry.drone_state.gps.longitude)
+  const isLive = useTelemetryStore((state) => state.telemetry.is_active)
 
   return (
     <div className="p-8 flex flex-col justify-between h-full">
@@ -16,16 +19,16 @@ export default function HUD() {
           </div>
           <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
             <span className="text-gray-400">ALT:</span>
-            <span className="font-mono">{telemetry.drone_state.gps.altitude_relative_m.toFixed(1)}m</span>
+            <span className="font-mono">{altitude.toFixed(1)}m</span>
             <span className="text-gray-400">BAT:</span>
-            <span className="font-mono text-agri-neon">{telemetry.drone_state.battery_percentage}%</span>
+            <span className="font-mono text-agri-neon">{battery}%</span>
           </div>
         </div>
         
         <div className="bg-black/40 border-r-4 border-agri-gold p-4 backdrop-blur-sm text-right">
           <h2 className="text-agri-gold text-xs font-bold uppercase tracking-widest mb-1">Navigation</h2>
           <div className="text-sm font-mono">
-            {telemetry.drone_state.gps.latitude.toFixed(6)}, {telemetry.drone_state.gps.longitude.toFixed(6)}
+            {lat.toFixed(6)}, {lon.toFixed(6)}
           </div>
         </div>
       </div>
@@ -35,7 +38,7 @@ export default function HUD() {
         <div className="w-64 h-2 border-x-2 border-b-2 border-white/20 relative">
           <div 
             className="absolute top-0 h-full bg-agri-neon/50 transition-all duration-100" 
-            style={{ width: `${telemetry.drone_state.battery_percentage}%` }}
+            style={{ width: `${battery}%` }}
           />
         </div>
       </div>
