@@ -1,110 +1,69 @@
-import React, { useRef, useMemo } from 'react'
+import React, { useMemo, useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
-import { PerspectiveCamera, Grid } from '@react-three/drei'
+import { PerspectiveCamera, Sky, Stars, Cloud, Instances, Instance } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 
-function HUDOverlay() {
-  const meshRef = useRef()
-  
-  useFrame(() => {
-    const telemetry = useTelemetryStore.getState().telemetry
-    if (meshRef.current && telemetry.is_active) {
-      // Convert degrees to radians for Three.js
-      const { pitch, roll, yaw_heading } = telemetry.drone_state.orientation_deg
-      
-      const pitchRad = THREE.MathUtils.degToRad(pitch)
-      const rollRad = THREE.MathUtils.degToRad(-roll)
-      const yawRad = THREE.MathUtils.degToRad(-yaw_heading)
-      
-      // Update rotation using 'YXZ' order to prevent Gimbal Lock
-      meshRef.current.rotation.set(pitchRad, yawRad, rollRad, 'YXZ')
-      
-      // Update altitude
-      meshRef.current.position.y = telemetry.drone_state.gps.altitude_relative_m * 0.1
-    }
-  })
-
+function BoundedEnvironment() {
   return (
-    <group ref={meshRef}>
-      {/* Virtual Horizon / Grid */}
-      <Grid 
-        infiniteGrid 
-        fadeDistance={50} 
-        sectionSize={1} 
-        sectionColor="#39FF14" 
-        sectionThickness={1.5}
-        cellSize={0.5}
-        cellColor="#2D5A27"
-      />
+    <>
+      {/* Sun and Sky are now FIXED */}
+      <Sky distance={450000} sunPosition={[2, 1, 0]} inclination={0} azimuth={0.15} />
+      {/* Stars speed set to 0 to prevent "Ghost Drift" */}
+      <Stars radius={300} depth={150} count={5000} factor={8} saturation={0} fade speed={0} />
       
-      {/* Center Reticle */}
-      <mesh position={[0, 0, -5]}>
-        <ringGeometry args={[0.2, 0.22, 32]} />
-        <meshBasicMaterial color="#39FF14" transparent opacity={0.5} />
+      <ambientLight intensity={0.6} />
+      <directionalLight position={[100, 200, 100]} intensity={1.8} castShadow />
+      
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.5, 0]} receiveShadow>
+        <planeGeometry args={[500, 500]} />
+        <meshStandardMaterial color="#7fb069" roughness={0.9} />
       </mesh>
-    </group>
+      
+      <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.2, 0]}>
+        <planeGeometry args={[500, 500]} />
+        <meshStandardMaterial color="#88c4ee" roughness={0.1} metalness={0.8} transparent opacity={0.8} />
+      </mesh>
+
+      {/* Cloud speed set to 0 */}
+      <Cloud position={[-100, 40, -120]} speed={0} opacity={0.2} />
+
+      <mesh position={[0, 49.5, -250]} castShadow><boxGeometry args={[500, 100, 20]} /><meshStandardMaterial color="#b0a9a2" /></mesh>
+      <mesh position={[0, 49.5, 250]} castShadow><boxGeometry args={[500, 100, 20]} /><meshStandardMaterial color="#b0a9a2" /></mesh>
+      <mesh position={[-250, 49.5, 0]} rotation={[0, Math.PI / 2, 0]} castShadow><boxGeometry args={[500, 100, 20]} /><meshStandardMaterial color="#b0a9a2" /></mesh>
+      <mesh position={[250, 49.5, 0]} rotation={[0, Math.PI / 2, 0]} castShadow><boxGeometry args={[500, 100, 20]} /><meshStandardMaterial color="#b0a9a2" /></mesh>
+    </>
   )
 }
 
-function FlightTunnel() {
-  const meshRef = useRef()
-  
+function HUDOverlay() {
+  const groupRef = useRef()
   useFrame(() => {
     const telemetry = useTelemetryStore.getState().telemetry
-    // Logic can be added here if the tunnel needs to react to live GPS
+    const { pitch, roll, yaw_heading } = telemetry.drone_state.orientation_deg
+    const altitude = telemetry.drone_state.gps.altitude_relative_m || 0
+    
+    // Smooth camera rotation
+    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, THREE.MathUtils.degToRad(pitch), 0.1)
+    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, THREE.MathUtils.degToRad(-yaw_heading), 0.1)
+    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, THREE.MathUtils.degToRad(-roll), 0.1)
+    
+    // Smooth camera altitude
+    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, altitude + 1.5, 0.1)
   })
-  
-  // Memoize geometry and points to prevent re-creation
-  const { curve, points } = useMemo(() => {
-    const targetPos = new THREE.Vector3(2, 0, -20)
-    const pts = []
-    for (let i = 0; i <= 10; i++) {
-      const t = i / 10
-      pts.push(new THREE.Vector3(
-        t * targetPos.x,
-        t * targetPos.y + Math.sin(t * Math.PI) * 2,
-        t * targetPos.z
-      ))
-    }
-    return { 
-      curve: new THREE.CatmullRomCurve3(pts),
-      points: pts
-    }
-  }, [])
 
   return (
-    <group ref={meshRef}>
-      {/* The main path line */}
-      <mesh>
-        <tubeGeometry args={[curve, 20, 0.1, 8, false]} />
-        <meshBasicMaterial color="#39FF14" transparent opacity={0.3} />
-      </mesh>
-      
-      {/* Holographic "rings" along the path */}
-      {points.filter((_, i) => i % 2 === 0).map((p, i) => (
-        <mesh key={i} position={p}>
-          <ringGeometry args={[0.5, 0.55, 32]} />
-          <meshBasicMaterial color="#39FF14" transparent opacity={0.2} side={THREE.DoubleSide} />
-        </mesh>
-      ))}
-
-      {/* Target Marker */}
-      <mesh position={[2, 0, -20]}>
-        <sphereGeometry args={[0.3, 16, 16]} />
-        <meshBasicMaterial color="#FFD700" />
-      </mesh>
+    <group ref={groupRef}>
+      <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={75} />
     </group>
   )
 }
 
 export default function Scene() {
   return (
-    <Canvas>
-      <PerspectiveCamera makeDefault position={[0, 0, 5]} />
-      <ambientLight intensity={0.5} />
+    <Canvas shadows gl={{ antialias: false }}>
+      <BoundedEnvironment />
       <HUDOverlay />
-      <FlightTunnel />
     </Canvas>
   )
 }
