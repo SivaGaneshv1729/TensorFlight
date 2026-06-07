@@ -29,11 +29,13 @@ class TelemetryBroadcaster:
         await websocket.accept()
         async with self._lock:
             self.active_connections.append(websocket)
+        print(f"📡 New WebSocket Client Connected. Total: {len(self.active_connections)}")
 
     async def disconnect(self, websocket: WebSocket):
         async with self._lock:
             if websocket in self.active_connections:
                 self.active_connections.remove(websocket)
+        print(f"❌ WebSocket Client Disconnected. Remaining: {len(self.active_connections)}")
 
     async def broadcast(self, message: TelemetryData):
         if not self.active_connections:
@@ -41,16 +43,12 @@ class TelemetryBroadcaster:
         
         data = message.model_dump_json()
         async with self._lock:
-            # Copy list to iterate safely during broadcast
             connections = list(self.active_connections)
 
+        # Broadcast to all clients
         tasks = [connection.send_text(data) for connection in connections]
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Clean up any connections that failed
-        for i, result in enumerate(results):
-            if isinstance(result, Exception):
-                await self.disconnect(connections[i])
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
 
 broadcaster = TelemetryBroadcaster()
 
@@ -59,14 +57,32 @@ async def telemetry_websocket(websocket: WebSocket):
     await broadcaster.connect(websocket)
     try:
         while True:
-            await broadcaster.broadcast(latest_telemetry)
-            await asyncio.sleep(0.05) # 20Hz sync
+            # Keep the connection open and wait for messages (which we ignore)
+            # or for a disconnect exception
+            await websocket.receive_text()
     except WebSocketDisconnect:
         await broadcaster.disconnect(websocket)
+
+from app.models.database import get_db
 
 @router.post("/telemetry/update")
 async def update_telemetry(data: TelemetryData):
     global latest_telemetry
     latest_telemetry = data
     latest_telemetry.is_active = True
+    
+    print(f"📥 Telemetry received: Lat={data.drone_state.gps.latitude:.4f}, Alt={data.drone_state.gps.altitude_relative_m:.1f}")
+    
+    # Trigger an immediate broadcast to all connected HUDs
+    await broadcaster.broadcast(latest_telemetry)
+    
+    # Persist to MongoDB (Async)
+    try:
+        db = await get_db()
+        if db is not None:
+            await db.telemetry_logs.insert_one(data.model_dump())
+    except Exception as e:
+        # Fail silently for DB but log the error
+        print(f"⚠️ DB Logging Error: {e}")
+        
     return {"status": "success"}
