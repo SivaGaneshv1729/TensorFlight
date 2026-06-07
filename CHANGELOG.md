@@ -1,6 +1,20 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
+## [1.1.0] - 2026-06-07
+### Added
+- **ArduPilot SITL Integration:** Replaced mock telemetry with a real-time MAVLink bridge.
+- **MAVLink Bridge:** Implementation of `app/core/mavlink.py` using `pymavlink`.
+- **Horizontal GPS Movement:** Added GPS-to-local coordinate translation logic in `Scene.jsx`.
+- **Command Routing:** Native support for ARM, TAKEOFF, and LAND MAVLink commands.
+
+### Changed
+- **Architectural Overhaul:** Transitioned from a standalone mock simulator to a professional-grade SITL architecture.
+- **Non-blocking Startup:** Backend now initializes without waiting for a MAVLink heartbeat, improving stability.
+
+### Fixed
+- Video pipeline resource leak potential by refining initialization.
+- Frontend "Ghost Drift" by fixing Star and Cloud movement speeds.
+
 
 ## [1.1.0] - 2026-06-07
 

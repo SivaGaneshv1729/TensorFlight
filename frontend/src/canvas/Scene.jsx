@@ -38,18 +38,38 @@ function BoundedEnvironment() {
 
 function HUDOverlay() {
   const groupRef = useRef()
+  const homeRef = useRef(null)
+
   useFrame(() => {
     const telemetry = useTelemetryStore.getState().telemetry
     const { pitch, roll, yaw_heading } = telemetry.drone_state.orientation_deg
-    const altitude = telemetry.drone_state.gps.altitude_relative_m || 0
+    const { latitude, longitude, altitude_relative_m } = telemetry.drone_state.gps
     
+    // Set home position on first valid telemetry
+    if (!homeRef.current && latitude !== 0 && longitude !== 0) {
+      homeRef.current = { lat: latitude, lon: longitude }
+    }
+
     // Smooth camera rotation
     groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, THREE.MathUtils.degToRad(pitch), 0.1)
     groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, THREE.MathUtils.degToRad(-yaw_heading), 0.1)
     groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, THREE.MathUtils.degToRad(-roll), 0.1)
     
     // Smooth camera altitude
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, altitude + 1.5, 0.1)
+    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, (altitude_relative_m || 0) + 1.5, 0.1)
+
+    // Horizontal movement based on GPS offset from Home
+    if (homeRef.current) {
+      // 1 degree lat approx 111319 meters
+      const deltaLat = latitude - homeRef.current.lat
+      const deltaLon = longitude - homeRef.current.lon
+      
+      const posX = deltaLon * 111319 * Math.cos(latitude * Math.PI / 180)
+      const posZ = -deltaLat * 111319
+      
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, posX, 0.1)
+      groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, posZ, 0.1)
+    }
   })
 
   return (

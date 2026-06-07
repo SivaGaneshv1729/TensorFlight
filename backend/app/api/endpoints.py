@@ -2,6 +2,7 @@ from fastapi import APIRouter, Response
 from fastapi.responses import StreamingResponse
 from app.schemas.telemetry import DroneCommand
 from app.core.video_pipeline import VideoPipeline
+from app.core.mavlink import mav_bridge
 import cv2
 import asyncio
 
@@ -21,27 +22,21 @@ def gen_frames(mode: str = "normal"):
     finally:
         pipeline.release()
 
-# Persistent command state
-current_manual_inputs = []
-
 @router.get("/video/stream")
 async def video_feed(mode: str = "normal"):
     return StreamingResponse(gen_frames(mode), media_type='multipart/x-mixed-replace; boundary=frame')
 
 @router.get("/commands/poll")
 async def poll_commands():
-    global current_manual_inputs
-    temp = list(current_manual_inputs)
-    current_manual_inputs = [] # Snap-clear to prevent drift
-    return {"inputs": temp}
+    # Deprecated for MAVLink SITL, but kept for compatibility
+    return {"inputs": []}
 
 @router.post("/command")
 async def send_command(command: DroneCommand):
-    global current_manual_inputs
-    if command.action == "MANUAL_CONTROL":
-        current_manual_inputs = command.params.get("inputs", [])
-        return {"status": "ok"}
-    return {"status": "success", "executed": command.action}
+    success = mav_bridge.send_command(command.action, command.params)
+    if success:
+        return {"status": "success", "executed": command.action}
+    return {"status": "error", "message": "MAVLink command failed"}
 
 @router.get("/health")
 async def health_check():

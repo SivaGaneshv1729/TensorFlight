@@ -11,71 +11,52 @@ AgriHUD-AI is a high-performance, web-based Ground Control Station (GCS) and Hea
 - **High-Frequency Telemetry**: 20Hz WebSocket updates for real-time responsiveness.
 - **Data Persistence**: Automatic telemetry logging to MongoDB for post-flight analysis.
 
-## 🏗️ Architecture
+## 🏗️ Professional Architecture
 
-- **Frontend:** React + Three.js (Fiber/Drei) + TailwindCSS + Zustand.
-  - Optimized 3D environment with `BoundedEnvironment` for stability.
-  - `useKeyboardControls` hook for low-latency command dispatch.
-  - Reactive HUD components using optimized store selectors.
-- **Backend:** FastAPI (Python) + OpenCV + WebSockets.
-  - `VideoPipeline` for real-time image processing (Normal vs VARI).
-  - Dedicated command polling system for high-frequency manual control.
-  - Async MongoDB integration for flight logs.
-- **Simulator:** "Scorched-Earth" physics model with zero-drift manual control simulation.
+The project now implements an industry-standard simulation and flight control stack:
+- **Frontend:** React + Three.js (React Three Fiber) for real-time 3D HUD rendering and GPS-to-World coordinate translation.
+- **Backend:** FastAPI with a high-performance **MAVLink Bridge** (`pymavlink`).
+- **Autopilot:** Integrates directly with **ArduPilot SITL** for realistic flight dynamics, failsafes, and MAVLink communication.
+- **Data Persistence:** Automatic telemetry logging to MongoDB for post-flight analysis.
 
-## 🚀 Quick Start
+## 🚀 Setup & Execution
 
 ### 1. Prerequisites
 - Python 3.11+
 - Node.js 18+
+- Docker (for ArduPilot SITL)
 - MongoDB (Running locally on default port 27017)
-- A webcam (for `VideoPipeline` if no drone is connected)
 
-### 2. Setup Backend
+### 2. Start ArduPilot SITL (The Drone Brain)
+Run the flight simulator via Docker:
+```bash
+docker run -it -p 14550:14550/udp radarku/ardupilot-sitl
+```
+
+### 3. Setup Backend
 ```bash
 cd backend
 python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
+python -m uvicorn app.main:app --reload
 ```
 
-### 3. Setup Frontend
+### 4. Setup Frontend
 ```bash
 cd frontend
 npm install
-```
-
-### 4. Running the System
-You can start all components using the following commands:
-
-**Backend (API & Stream):**
-```bash
-cd backend
-uvicorn app.main:app --reload
-```
-
-**Simulator (Manual Control):**
-```bash
-cd backend
-python mock_telemetry.py
-```
-
-**Frontend (HUD Interface):**
-```bash
-cd frontend
 npm run dev
 ```
 
-Visit `http://localhost:5173` to view the HUD.
+Visit `http://127.0.0.1:5173` to view the HUD.
 
-## 🎮 Controls
-
-| Key | Action |
-|-----|--------|
-| `W` / `S` | Pitch Forward / Back |
-| `A` / `D` | Roll Left / Right |
-| `↑` / `↓` | Altitude Up / Down |
-| `←` / `→` | Yaw Left / Right |
+## 🎮 Flight Commands
+The UI now routes commands directly to ArduPilot via MAVLink:
+- **ARM**: Prepare motors for flight.
+- **TAKEOFF**: Automatic ascent to a target altitude.
+- **LAND**: Automatic descent and disarming.
+- **SET_MODE**: Switch between GUIDED, LOITER, and RTL.
 
 ## 🛰️ Telemetry Schema
 
