@@ -1,42 +1,67 @@
 from fastapi import APIRouter, Response
 from fastapi.responses import StreamingResponse
-from app.schemas.telemetry import DroneCommand
+from app.schemas.telemetry import DroneCommand, TelemetryData
 from app.core.video_pipeline import VideoPipeline
 from app.core.mavlink import mav_bridge
 import cv2
 import asyncio
+import time
 
 router = APIRouter()
-pipeline = VideoPipeline(source="0")
+# Queue for all commands to support mock_telemetry.py
+command_queue = []
 
-def gen_frames(mode: str = "normal"):
-    pipeline.start_stream()
-    try:
+async def gen_frames(mode: str = "normal"):
+    # Use a local pipeline instance per stream to avoid global state conflicts
+    with VideoPipeline(source="0") as local_pipeline:
+        frame_time = 1 / 30  # 30 FPS
         while True:
-            success, frame = pipeline.cap.read()
+            start_time = time.time()
+            success, frame = local_pipeline.read_frame()
             if not success: break
-            processed_frame = pipeline.process_frame(frame, mode=mode)
+            
+            processed_frame = local_pipeline.process_frame(frame, mode=mode)
             ret, buffer = cv2.imencode('.jpg', processed_frame)
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-    finally:
-        pipeline.release()
+            
+            # Enforce FPS limit using non-blocking sleep
+            elapsed = time.time() - start_time
+            if elapsed < frame_time:
+                await asyncio.sleep(frame_time - elapsed)
 
 @router.get("/video/stream")
 async def video_feed(mode: str = "normal"):
     return StreamingResponse(gen_frames(mode), media_type='multipart/x-mixed-replace; boundary=frame')
 
+@router.post("/telemetry/update")
+async def update_telemetry(data: TelemetryData):
+    # This allows the mock_telemetry.py to update the system state
+    # We update the mav_bridge.latest_data directly
+    async with mav_bridge._lock:
+        mav_bridge.latest_data = data
+        mav_bridge.last_heartbeat = time.time()
+    return {"status": "success"}
+
 @router.get("/commands/poll")
 async def poll_commands():
-    # Deprecated for MAVLink SITL, but kept for compatibility
-    return {"inputs": []}
+    global command_queue
+    commands = list(command_queue)
+    command_queue = [] # Clear queue after polling
+    return {"commands": commands}
 
 @router.post("/command")
 async def send_command(command: DroneCommand):
-    success = mav_bridge.send_command(command.action, command.params)
-    if success:
-        return {"status": "success", "executed": command.action}
-    return {"status": "error", "message": "MAVLink command failed"}
+    print(f"📥 Received Command: {command.action} with params {command.params}")
+    
+    # Queue for mock_telemetry.py
+    global command_queue
+    command_queue.append(command.model_dump())
+    
+    # Forward to MAVLink (for real SITL if connected)
+    mav_bridge.send_command(command.action, command.params)
+    
+    return {"status": "success", "executed": command.action}
 
 @router.get("/health")
 async def health_check():
