@@ -5,9 +5,11 @@ import math
 from app.schemas.telemetry import TelemetryData, DroneState, GPSPoint, Orientation, NavigationTarget
 
 class MAVLinkBridge:
-    def __init__(self, connection_url="udpin:0.0.0.0:14550"):
+    def __init__(self, connection_url="udpin:0.0.0.0:14551"):
         self.connection_url = connection_url
         self.master = None
+        # Use a thread-safe lock for accessing latest_data
+        self._lock = asyncio.Lock()
         self.latest_data = self._initial_state()
         self._is_running = False
         self.heartbeat_timeout = 5.0
@@ -32,58 +34,64 @@ class MAVLinkBridge:
         print(f"🔗 Connecting to MAVLink SITL at {self.connection_url}...")
         try:
             self.master = mavutil.mavlink_connection(self.connection_url)
-            # We don't wait_heartbeat() here to avoid blocking startup.
-            # The listen_loop will handle connection state via heartbeats.
             print("📡 MAVLink Bridge Initialized (waiting for heartbeat in background)")
         except Exception as e:
             print(f"❌ MAVLink Initialization Failed: {e}")
 
-    async def listen_loop(self, broadcast_callback):
-        self._is_running = True
-        while self._is_running:
-            try:
-                # Non-blocking receive
-                msg = self.master.recv_match(blocking=False)
-                if msg:
-                    self._handle_message(msg)
-                    
-                    # Periodic broadcast (e.g., at 20Hz)
-                    # We can also broadcast on every message, but that's high traffic.
-                    # Let's broadcast when we get important updates.
-                    if msg.get_type() in ['ATTITUDE', 'GLOBAL_POSITION_INT']:
-                        self.latest_data.timestamp = int(time.time() * 1000)
-                        await broadcast_callback(self.latest_data)
+    async def get_latest_data(self):
+        async with self._lock:
+            return self.latest_data
 
+    async def _update_data(self, new_msg):
+        async with self._lock:
+            self._handle_message(new_msg)
+
+    async def listen_loop(self):
+        """Dedicated loop to only ingest MAVLink messages."""
+        self._is_running = True
+        loop = asyncio.get_running_loop()
+        while self._is_running:
+            if not self.master:
+                # If connection failed, wait and retry or just idle
+                await asyncio.sleep(2)
+                continue
+
+            try:
+                # Run the blocking recv_match in a thread pool
+                msg = await loop.run_in_executor(
+                    None, 
+                    lambda: self.master.recv_match(blocking=True, timeout=1.0)
+                )
+                if msg:
+                    await self._update_data(msg)
+                
                 # Check for connection loss
                 if time.time() - self.last_heartbeat > self.heartbeat_timeout:
-                    self.latest_data.is_active = False
+                    async with self._lock:
+                        self.latest_data.is_active = False
 
-                await asyncio.sleep(0.01) # 100Hz polling rate
             except Exception as e:
                 print(f"⚠️ MAVLink Error: {e}")
-                await asyncio.sleep(1)
+                await asyncio.sleep(1) # Wait before retrying on error
 
     def _handle_message(self, msg):
         msg_type = msg.get_type()
+        self.latest_data.timestamp = int(time.time() * 1000)
 
         if msg_type == 'HEARTBEAT':
             self.last_heartbeat = time.time()
-            # MAV_STATE_ACTIVE is usually 4
             self.latest_data.is_active = msg.system_status == 4
             self.master.target_system = msg.get_srcSystem()
             self.master.target_component = msg.get_srcComponent()
 
         elif msg_type == 'ATTITUDE':
-            # MAVLink sends radians, we convert to degrees
             self.latest_data.drone_state.orientation_deg.pitch = math.degrees(msg.pitch)
             self.latest_data.drone_state.orientation_deg.roll = math.degrees(msg.roll)
             self.latest_data.drone_state.orientation_deg.yaw_heading = (math.degrees(msg.yaw) + 360) % 360
 
         elif msg_type == 'GLOBAL_POSITION_INT':
-            # Lat/Lon are scaled by 1e7
             self.latest_data.drone_state.gps.latitude = msg.lat / 1.0e7
             self.latest_data.drone_state.gps.longitude = msg.lon / 1.0e7
-            # Alt is in mm
             self.latest_data.drone_state.gps.altitude_relative_m = msg.relative_alt / 1000.0
 
         elif msg_type == 'SYS_STATUS':
@@ -94,6 +102,7 @@ class MAVLinkBridge:
 
     def send_command(self, action: str, params: dict = None):
         if not self.master:
+            print(f"⚠️ Command '{action}' rejected: MAVLink not connected.")
             return False
         
         params = params or {}
@@ -114,6 +123,17 @@ class MAVLinkBridge:
                 self.master.target_system, self.master.target_component,
                 mavutil.mavlink.MAV_CMD_NAV_LAND, 0, 0, 0, 0, 0, 0, 0, 0
             )
+        elif action == "RTL":
+            self.master.set_mode_rtl()
+        elif action == "EMERGENCY_STOP":
+            # Force disarm (Dangerous, but that's what emergency stop is)
+            self.master.mav.command_long_send(
+                self.master.target_system, self.master.target_component,
+                mavutil.mavlink.MAV_CMD_COMPONENT_ARM_DISARM, 0, 
+                0, # 0 to disarm
+                21196, # Magic number for force disarm
+                0, 0, 0, 0, 0
+            )
         elif action == "SET_MODE":
             mode = params.get("mode", "GUIDED")
             if mode in self.master.mode_mapping():
@@ -123,7 +143,23 @@ class MAVLinkBridge:
                     mavutil.mavlink.MAV_MODE_FLAG_CUSTOM_MODE_ENABLED,
                     mode_id
                 )
+        elif action == "MANUAL_CONTROL":
+            inputs = params.get("inputs", [])
+            x, y, z, r = 0, 0, 500, 0  # thrust 500 is neutral
+            
+            if 'PITCH_FORWARD' in inputs: x = 500
+            if 'PITCH_BACK' in inputs: x = -500
+            if 'ROLL_LEFT' in inputs: y = -500
+            if 'ROLL_RIGHT' in inputs: y = 500
+            if 'ALT_UP' in inputs: z = 700
+            if 'ALT_DOWN' in inputs: z = 300
+            if 'YAW_LEFT' in inputs: r = -500
+            if 'YAW_RIGHT' in inputs: r = 500
+            
+            self.master.mav.manual_control_send(
+                self.master.target_system,
+                x, y, z, r, 0
+            )
         return True
 
-# Singleton instance
 mav_bridge = MAVLinkBridge()
