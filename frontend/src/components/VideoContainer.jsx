@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 
 export default function VideoContainer() {
   const [mode, setMode] = useState('normal'); // 'normal' or 'vari'
-  const streamUrl = `http://localhost:8000/api/video/stream?mode=${mode}`;
+  const streamUrl = `/api/video/stream?mode=${mode}`;
 
   return (
     <div className="w-full h-full bg-zinc-900 flex items-center justify-center relative overflow-hidden">
