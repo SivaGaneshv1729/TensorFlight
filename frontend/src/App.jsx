@@ -33,7 +33,6 @@ function App() {
       {/* Left Monitoring Panel */}
       <div className="absolute top-8 left-8 z-30 flex flex-col gap-6 pointer-events-none">
         <DroneViews />
-        <MapView />
       </div>
 
       {/* Augmented Reality HUD Elements */}

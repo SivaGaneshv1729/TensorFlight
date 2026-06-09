@@ -2,11 +2,13 @@ import React, { useState } from 'react'
 import { Settings as SettingsIcon, Map as MapIcon, Activity, ShieldAlert, Play, Square, Home, FastForward, ArrowUpCircle, X } from 'lucide-react'
 import axios from 'axios'
 import useTelemetryStore from '../store/useTelemetryStore'
+import MapView from './MapView'
 
 export default function Sidebar() {
   const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
   const setSettings = useTelemetryStore((state) => state.setSettings)
   const [showSettings, setShowSettings] = useState(false)
+  const [showMap, setShowMap] = useState(false)
 
   const sendCommand = async (action) => {
     try {
@@ -45,11 +47,14 @@ export default function Sidebar() {
 
         <div className="w-10 h-[1px] bg-white/10" />
 
-        <button className="p-3 text-gray-400 hover:text-white hover:bg-white/5 rounded-xl transition-colors">
+        <button 
+          onClick={() => { setShowMap(!showMap); setShowSettings(false); }}
+          className={`p-3 rounded-xl transition-colors ${showMap ? 'text-agri-gold bg-agri-gold/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+        >
           <MapIcon size={24} />
         </button>
         <button 
-          onClick={() => setShowSettings(!showSettings)}
+          onClick={() => { setShowSettings(!showSettings); setShowMap(false); }}
           className={`p-3 rounded-xl transition-colors ${showSettings ? 'text-agri-neon bg-agri-neon/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
         >
           <SettingsIcon size={24} />
@@ -64,6 +69,9 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
+
+      {/* Map Modal/Overlay */}
+      {showMap && <MapView onClose={() => setShowMap(false)} />}
 
       {/* Settings Modal/Overlay */}
       {showSettings && (
