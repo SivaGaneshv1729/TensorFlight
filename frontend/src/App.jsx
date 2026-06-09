@@ -3,6 +3,8 @@ import HUD from './components/HUD'
 import VideoContainer from './components/VideoContainer'
 import Sidebar from './components/Sidebar'
 import Scene from './canvas/Scene'
+import DroneViews from './components/DroneViews'
+import MapView from './components/MapView'
 
 import useWebSocket from './useWebSocket'
 import useKeyboardControls from './useKeyboardControls'
@@ -23,6 +25,12 @@ function App() {
       {/* Background Video Stream */}
       <div className="absolute inset-0 z-0">
         <VideoContainer />
+      </div>
+
+      {/* Left Monitoring Panel */}
+      <div className="absolute top-8 left-8 z-30 flex flex-col gap-6 pointer-events-none">
+        <DroneViews />
+        <MapView />
       </div>
 
       {/* Augmented Reality HUD Elements */}
