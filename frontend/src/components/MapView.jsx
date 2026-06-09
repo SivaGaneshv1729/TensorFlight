@@ -7,7 +7,7 @@ export default function MapView() {
   const heading = useTelemetryStore((state) => state.telemetry.drone_state.orientation_deg.yaw_heading)
 
   return (
-    <div className="w-48 h-48 bg-black/60 border border-white/10 rounded-lg overflow-hidden relative backdrop-blur-md flex flex-col pointer-events-auto">
+    <div className="w-48 h-48 bg-black/60 border border-white/10 rounded-lg overflow-hidden relative flex flex-col pointer-events-auto">
       <div className="absolute top-2 left-2 z-10 text-[10px] font-bold text-agri-gold uppercase tracking-widest opacity-80">
         Tactical Map
       </div>
