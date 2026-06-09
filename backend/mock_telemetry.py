@@ -11,8 +11,11 @@ async def simulate_drone():
     is_armed = False
     is_rtl = False
     
-    # Home Position (Set on first arm)
-    home_lat, home_lon = 12.9716, 77.5946
+    # Home Position (Set on first arm) - Relocated to a farm in Iowa, USA
+    home_lat, home_lon = 41.7315, -93.8587
+    
+    # Mission State
+    target_wp = None # {lat, lon, alt}
     
     # Position
     lat, lon, alt, heading = home_lat, home_lon, 0.0, 0.0
@@ -52,7 +55,12 @@ async def simulate_drone():
                         print("⚠️ Cannot DISARM while in air!")
                 elif action == "RTL":
                     is_rtl = True
+                    target_wp = None # RTL overrides waypoints
                     print("🏠 Returning to Home...")
+                elif action == "GOTO_WAYPOINT":
+                    target_wp = cmd.get("params")
+                    is_rtl = False
+                    print(f"📍 New Waypoint set: {target_wp['lat']}, {target_wp['lon']}")
                 elif action == "EMERGENCY_STOP":
                     is_armed = False
                     alt = 0 # Instant drop
@@ -73,8 +81,69 @@ async def simulate_drone():
 
             if is_armed:
                 if is_rtl:
-                    # RTL Logic... (rest of RTL logic)
-                    pass
+                    # PRO RTL: 3-Phase Logic
+                    target_alt = 15.0
+                    
+                    # Calculate Distances in Meters (Approx)
+                    dist_lat_m = (home_lat - lat) * 111319
+                    dist_lon_m = (home_lon - lon) * 111319 * math.cos(math.radians(lat))
+                    dist_to_home = math.sqrt(dist_lat_m**2 + dist_lon_m**2)
+
+                    # 1. Height Control
+                    if alt < (target_alt - 0.5):
+                        v_alt = BASE_ALT_SPEED
+                    elif alt > (target_alt + 0.5):
+                        v_alt = -BASE_ALT_SPEED
+
+                    # 2. Navigation
+                    if dist_to_home > 1.5:
+                        # Phase 1 & 2: Rotate and Move towards Home
+                        target_heading = (math.degrees(math.atan2(dist_lon_m, dist_lat_m)) + 360) % 360
+                        angle_diff = (target_heading - heading + 180) % 360 - 180
+                        
+                        # Rotate towards home
+                        v_yaw = max(-YAW_SPEED, min(YAW_SPEED, angle_diff * 0.2))
+                        
+                        # Only move forward if reasonably aligned (within 45 degrees)
+                        if abs(angle_diff) < 45:
+                            v_forward = BASE_SPEED_FACTOR * 1.5 # Boosted speed for RTL
+                            target_pitch = -10.0
+                        
+                        if dist_to_home < 5.0:
+                            print(f"RTL: Approaching... {dist_to_home:.1f}m")
+                    else:
+                        # Phase 3: Final Landing
+                        v_forward = 0
+                        v_yaw = 0
+                        if alt > 0.1:
+                            v_alt = -BASE_ALT_SPEED * 0.5 # Slow descent
+                        else:
+                            is_rtl = False
+                            is_armed = False
+                            print("RTL: Mission Complete. Disarmed.")
+                elif target_wp:
+                    # GOTO WAYPOINT LOGIC
+                    t_lat, t_lon = target_wp['lat'], target_wp['lon']
+                    t_alt = target_wp.get('alt', 15)
+
+                    dist_lat_m = (t_lat - lat) * 111319
+                    dist_lon_m = (t_lon - lon) * 111319 * math.cos(math.radians(lat))
+                    dist_to_wp = math.sqrt(dist_lat_m**2 + dist_lon_m**2)
+
+                    if alt < (t_alt - 0.5): v_alt = BASE_ALT_SPEED
+                    elif alt > (t_alt + 0.5): v_alt = -BASE_ALT_SPEED
+
+                    if dist_to_wp > 1.0:
+                        target_heading = (math.degrees(math.atan2(dist_lon_m, dist_lat_m)) + 360) % 360
+                        angle_diff = (target_heading - heading + 180) % 360 - 180
+                        v_yaw = max(-YAW_SPEED, min(YAW_SPEED, angle_diff * 0.3))
+                        
+                        if abs(angle_diff) < 30:
+                            v_forward = BASE_SPEED_FACTOR * 1.2
+                            target_pitch = -8.0
+                    else:
+                        print("📍 Waypoint Reached.")
+                        target_wp = None
                 else:
                     # Manual Controls with Custom Speeds
                     manual_cmd = next((c for c in reversed(commands) if c.get("action") == "MANUAL_CONTROL"), {})

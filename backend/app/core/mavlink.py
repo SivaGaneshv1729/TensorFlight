@@ -146,6 +146,18 @@ class MAVLinkBridge:
             )
         elif action == "RTL":
             self.master.set_mode_rtl()
+        elif action == "GOTO_WAYPOINT":
+            lat = params.get("lat")
+            lon = params.get("lon")
+            alt = params.get("alt", 10)
+            if lat and lon:
+                self.master.mav.command_int_send(
+                    self.master.target_system, self.master.target_component,
+                    mavutil.mavlink.MAV_FRAME_GLOBAL_RELATIVE_ALT,
+                    mavutil.mavlink.MAV_CMD_NAV_WAYPOINT,
+                    0, 0, 0, 0, 0, 0,
+                    int(lat * 1e7), int(lon * 1e7), alt
+                )
         elif action == "EMERGENCY_STOP":
             # Force disarm (Dangerous, but that's what emergency stop is)
             self.master.mav.command_long_send(
