@@ -1,7 +1,10 @@
 import { useEffect } from 'react'
 import axios from 'axios'
+import useTelemetryStore from './store/useTelemetryStore'
 
 export default function useKeyboardControls() {
+  const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
+
   useEffect(() => {
     const keys = {}
     
@@ -36,7 +39,11 @@ export default function useKeyboardControls() {
         try {
           await axios.post('/api/command', { 
             action: 'MANUAL_CONTROL', 
-            params: { inputs: activeCommands } 
+            params: { 
+              inputs: activeCommands,
+              forward_speed: forwardSpeed,
+              climb_speed: climbSpeed
+            } 
           })
         } catch (err) {}
       }
@@ -47,5 +54,5 @@ export default function useKeyboardControls() {
       window.removeEventListener('keyup', handleKeyUp)
       clearInterval(interval)
     }
-  }, [])
+  }, [forwardSpeed, climbSpeed])
 }

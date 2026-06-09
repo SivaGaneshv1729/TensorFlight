@@ -10,22 +10,22 @@ export default function useWebSocket() {
     let timeoutId;
     
     function connect() {
-      const host = window.location.hostname === 'localhost' ? '127.0.0.1' : window.location.hostname;
-      const url = `ws://${host}:8000/ws/telemetry`;
+      const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const url = `${protocol}://${window.location.host}/ws/telemetry`;
       console.log(`🔌 Attempting WebSocket connection to ${url}...`);
       
       const socket = new WebSocket(url)
       socketRef.current = socket
 
       socket.onopen = () => {
-        console.log('✅ WebSocket Connected Successfully');
+        console.log('✅ WebSocket Connected Successfully to:', url);
         reconnectCount.current = 0; // Reset count on successful connection
       };
 
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data)
-          console.debug('📡 Telemetry data received', data);
+          // console.debug('📡 Telemetry data received', data);
           setTelemetry(data)
         } catch (err) {
           console.error('Failed to parse telemetry data:', err)
@@ -36,9 +36,9 @@ export default function useWebSocket() {
         console.error('WebSocket Error:', error)
       }
 
-      socket.onclose = () => {
+      socket.onclose = (event) => {
         const backoff = Math.min(1000 * Math.pow(2, reconnectCount.current), 30000);
-        console.warn(`❌ WebSocket disconnected. Reconnecting in ${backoff / 1000}s...`);
+        console.warn(`❌ WebSocket disconnected (code: ${event.code}). Reconnecting in ${backoff / 1000}s...`);
         
         timeoutId = setTimeout(() => {
           reconnectCount.current++;

@@ -3,6 +3,7 @@ import { create } from 'zustand'
 const useTelemetryStore = create((set) => ({
   telemetry: {
     timestamp: Date.now(),
+    is_connected: false,
     is_active: false,
     drone_state: {
       gps: { latitude: 0, longitude: 0, altitude_relative_m: 0 },
@@ -16,6 +17,13 @@ const useTelemetryStore = create((set) => ({
     }
   },
   setTelemetry: (data) => set({ telemetry: data }),
+  settings: {
+    forwardSpeed: 100, // Range 0-500 for MAVLink consistency
+    climbSpeed: 200,   // Range 0-500
+  },
+  setSettings: (newSettings) => set((state) => ({ 
+    settings: { ...state.settings, ...newSettings } 
+  })),
 }))
 
 export default useTelemetryStore
