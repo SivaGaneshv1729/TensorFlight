@@ -18,6 +18,7 @@ class MAVLinkBridge:
     def _initial_state(self):
         return TelemetryData(
             timestamp=int(time.time() * 1000),
+            is_connected=False,
             is_active=False,
             drone_state=DroneState(
                 gps=GPSPoint(latitude=0, longitude=0, altitude_relative_m=0),
@@ -31,12 +32,21 @@ class MAVLinkBridge:
         )
 
     def connect(self):
+        if self.master:
+            try:
+                self.master.close()
+            except:
+                pass
+        
         print(f"🔗 Connecting to MAVLink SITL at {self.connection_url}...")
         try:
             self.master = mavutil.mavlink_connection(self.connection_url)
-            print("📡 MAVLink Bridge Initialized (waiting for heartbeat in background)")
+            print("📡 MAVLink Bridge Initialized (waiting for heartbeat)")
+            return True
         except Exception as e:
             print(f"❌ MAVLink Initialization Failed: {e}")
+            self.master = None
+            return False
 
     async def get_latest_data(self):
         async with self._lock:
@@ -52,9 +62,10 @@ class MAVLinkBridge:
         loop = asyncio.get_running_loop()
         while self._is_running:
             if not self.master:
-                # If connection failed, wait and retry or just idle
-                await asyncio.sleep(2)
-                continue
+                self.connect()
+                if not self.master:
+                    await asyncio.sleep(5)
+                    continue
 
             try:
                 # Run the blocking recv_match in a thread pool
@@ -62,17 +73,22 @@ class MAVLinkBridge:
                     None, 
                     lambda: self.master.recv_match(blocking=True, timeout=1.0)
                 )
+                
                 if msg:
                     await self._update_data(msg)
                 
                 # Check for connection loss
                 if time.time() - self.last_heartbeat > self.heartbeat_timeout:
                     async with self._lock:
-                        self.latest_data.is_active = False
+                        if self.latest_data.is_connected:
+                            print("⚠️ MAVLink Heartbeat Timeout")
+                            self.latest_data.is_connected = False
+                            self.latest_data.is_active = False
 
             except Exception as e:
                 print(f"⚠️ MAVLink Error: {e}")
-                await asyncio.sleep(1) # Wait before retrying on error
+                self.master = None # Trigger reconnection
+                await asyncio.sleep(1)
 
     def _handle_message(self, msg):
         msg_type = msg.get_type()
@@ -80,7 +96,12 @@ class MAVLinkBridge:
 
         if msg_type == 'HEARTBEAT':
             self.last_heartbeat = time.time()
-            self.latest_data.is_active = msg.system_status == 4
+            if not self.latest_data.is_connected:
+                print("📡 MAVLink Heartbeat Received - Connected")
+                self.latest_data.is_connected = True
+            
+            # is_active represents "ARMED" status
+            self.latest_data.is_active = bool(msg.base_mode & mavutil.mavlink.MAV_MODE_FLAG_SAFETY_ARMED)
             self.master.target_system = msg.get_srcSystem()
             self.master.target_component = msg.get_srcComponent()
 
@@ -145,16 +166,19 @@ class MAVLinkBridge:
                 )
         elif action == "MANUAL_CONTROL":
             inputs = params.get("inputs", [])
+            f_speed = params.get("forward_speed", 500)
+            c_speed = params.get("climb_speed", 200)
+            
             x, y, z, r = 0, 0, 500, 0  # thrust 500 is neutral
             
-            if 'PITCH_FORWARD' in inputs: x = 500
-            if 'PITCH_BACK' in inputs: x = -500
-            if 'ROLL_LEFT' in inputs: y = -500
-            if 'ROLL_RIGHT' in inputs: y = 500
-            if 'ALT_UP' in inputs: z = 700
-            if 'ALT_DOWN' in inputs: z = 300
-            if 'YAW_LEFT' in inputs: r = -500
-            if 'YAW_RIGHT' in inputs: r = 500
+            if 'PITCH_FORWARD' in inputs: x = f_speed
+            if 'PITCH_BACK' in inputs: x = -f_speed
+            if 'ROLL_LEFT' in inputs: y = -f_speed
+            if 'ROLL_RIGHT' in inputs: y = f_speed
+            if 'ALT_UP' in inputs: z = 500 + c_speed
+            if 'ALT_DOWN' in inputs: z = 500 - c_speed
+            if 'YAW_LEFT' in inputs: r = -f_speed
+            if 'YAW_RIGHT' in inputs: r = f_speed
             
             self.master.mav.manual_control_send(
                 self.master.target_system,

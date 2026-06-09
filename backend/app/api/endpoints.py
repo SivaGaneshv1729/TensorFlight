@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Response
 from fastapi.responses import StreamingResponse
 from app.schemas.telemetry import DroneCommand, TelemetryData
-from app.core.video_pipeline import VideoPipeline
+from app.core.video_pipeline import video_manager
 from app.core.mavlink import mav_bridge
 import cv2
 import asyncio
@@ -12,23 +12,22 @@ router = APIRouter()
 command_queue = []
 
 async def gen_frames(mode: str = "normal"):
-    # Use a local pipeline instance per stream to avoid global state conflicts
-    with VideoPipeline(source="0") as local_pipeline:
-        frame_time = 1 / 30  # 30 FPS
-        while True:
-            start_time = time.time()
-            success, frame = local_pipeline.read_frame()
-            if not success: break
-            
-            processed_frame = local_pipeline.process_frame(frame, mode=mode)
-            ret, buffer = cv2.imencode('.jpg', processed_frame)
+    frame_time = 1 / 30  # 30 FPS
+    while True:
+        start_time = time.time()
+        
+        # Get frame from global video manager
+        processed_frame = video_manager.get_frame(mode=mode)
+        
+        ret, buffer = cv2.imencode('.jpg', processed_frame)
+        if ret:
             yield (b'--frame\r\n'
                    b'Content-Type: image/jpeg\r\n\r\n' + buffer.tobytes() + b'\r\n')
-            
-            # Enforce FPS limit using non-blocking sleep
-            elapsed = time.time() - start_time
-            if elapsed < frame_time:
-                await asyncio.sleep(frame_time - elapsed)
+        
+        # Enforce FPS limit using non-blocking sleep
+        elapsed = time.time() - start_time
+        if elapsed < frame_time:
+            await asyncio.sleep(frame_time - elapsed)
 
 @router.get("/video/stream")
 async def video_feed(mode: str = "normal"):
@@ -40,14 +39,19 @@ async def update_telemetry(data: TelemetryData):
     # We update the mav_bridge.latest_data directly
     async with mav_bridge._lock:
         mav_bridge.latest_data = data
+        mav_bridge.latest_data.is_connected = True # Always connected if being updated via API
         mav_bridge.last_heartbeat = time.time()
     return {"status": "success"}
 
 @router.get("/commands/poll")
 async def poll_commands():
     global command_queue
+    if not command_queue:
+        return {"commands": []}
+    
     commands = list(command_queue)
     command_queue = [] # Clear queue after polling
+    print(f"📤 Polled {len(commands)} commands")
     return {"commands": commands}
 
 @router.post("/command")
@@ -57,6 +61,7 @@ async def send_command(command: DroneCommand):
     # Queue for mock_telemetry.py
     global command_queue
     command_queue.append(command.model_dump())
+    print(f"📝 Command queued. Queue size: {len(command_queue)}")
     
     # Forward to MAVLink (for real SITL if connected)
     mav_bridge.send_command(command.action, command.params)

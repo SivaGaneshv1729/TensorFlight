@@ -64,9 +64,9 @@ async def persistence_loop(bridge: 'MAVLinkBridge'):
     db = await get_db()
     while True:
         data = await bridge.get_latest_data()
-        if data and data.is_active:
+        if data and data.is_connected:
             try:
-                # Convert to dict and remove timestamp to let MongoDB handle or use provided one
+                # Convert to dict
                 doc = data.model_dump()
                 await db.telemetry_logs.insert_one(doc)
             except Exception as e:

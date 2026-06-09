@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api import endpoints, websockets
 from app.models.database import connect_db, close_db
 from app.core.mavlink import mav_bridge
+from app.core.video_pipeline import video_manager
 from app.api.websockets import broadcaster, broadcast_telemetry_loop, persistence_loop
 
 @asynccontextmanager
@@ -12,15 +13,16 @@ async def lifespan(app: FastAPI):
     # Startup: Connect to DB
     await connect_db()
     
-    # Startup: Connect to MAVLink SITL
-    try:
-        mav_bridge.connect()
-        # Start the MAVLink, broadcast, and persistence loops as background tasks
-        asyncio.create_task(mav_bridge.listen_loop())
-        asyncio.create_task(broadcast_telemetry_loop(broadcaster, mav_bridge))
-        asyncio.create_task(persistence_loop(mav_bridge))
-    except Exception as e:
-        print(f"❌ Could not connect to MAVLink SITL: {e}. Check if ArduPilot is running.")
+    # Startup: Initialize MAVLink (will retry in background if SITL not ready)
+    mav_bridge.connect()
+    
+    # Startup: Initialize Video Manager
+    video_manager.start()
+    
+    # Start the MAVLink, broadcast, and persistence loops as background tasks
+    asyncio.create_task(mav_bridge.listen_loop())
+    asyncio.create_task(broadcast_telemetry_loop(broadcaster, mav_bridge))
+    asyncio.create_task(persistence_loop(mav_bridge))
 
     yield
     # Shutdown: Close DB

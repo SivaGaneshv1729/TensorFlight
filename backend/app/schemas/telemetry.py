@@ -23,6 +23,7 @@ class NavigationTarget(BaseModel):
 
 class TelemetryData(BaseModel):
     timestamp: int
+    is_connected: bool = False
     is_active: bool = False
     drone_state: DroneState
     navigation_target: NavigationTarget
