@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { PerspectiveCamera } from '@react-three/drei'
+import { useFrame } from '@react-three/fiber'
+import { View, PerspectiveCamera } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from '../canvas/Environment'
@@ -63,14 +63,14 @@ function FPVCamera({ type, orientation, gps }) {
 
 function Viewport({ title, type, orientation, gps }) {
   return (
-    <div className="w-48 h-32 bg-black/40 border border-white/10 rounded-lg overflow-hidden relative backdrop-blur-sm">
+    <div className="w-48 h-32 bg-black/40 border border-white/10 rounded-lg overflow-hidden relative">
       <div className="absolute top-1 left-2 z-10 text-[10px] font-bold text-agri-neon uppercase tracking-tighter bg-black/60 px-2 py-0.5 rounded">
         {title}
       </div>
-      <Canvas shadows gl={{ antialias: false }}>
-        <Environment simplified={true} />
+      <View className="w-full h-full">
+        <Environment />
         <FPVCamera type={type} orientation={orientation} gps={gps} />
-      </Canvas>
+      </View>
     </div>
   )
 }
