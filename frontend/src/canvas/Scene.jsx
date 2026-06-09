@@ -1,6 +1,6 @@
-import React, { useRef, useState } from 'react'
-import { Canvas, useFrame } from '@react-three/fiber'
-import { PerspectiveCamera } from '@react-three/drei'
+import React, { useRef } from 'react'
+import { useFrame } from '@react-three/fiber'
+import { View, PerspectiveCamera } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from './Environment'
@@ -21,7 +21,7 @@ function HUDOverlay() {
     }
 
     const lerpFactor = 0.1
-    const gimbalFactor = 0.3 // Synchronized with DroneViews.jsx
+    const gimbalFactor = 0.3
     
     groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, THREE.MathUtils.degToRad(pitch * gimbalFactor), lerpFactor)
     groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, THREE.MathUtils.degToRad(-yaw_heading), lerpFactor)
@@ -49,9 +49,9 @@ function HUDOverlay() {
 
 export default function Scene() {
   return (
-    <Canvas shadows gl={{ antialias: true, logarithmicDepthBuffer: true }}>
+    <View className="w-full h-full">
       <Environment />
       <HUDOverlay />
-    </Canvas>
+    </View>
   )
 }
