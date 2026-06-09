@@ -2,30 +2,40 @@ import React, { useState } from 'react'
 
 export default function VideoContainer() {
   const [mode, setMode] = useState('normal'); // 'normal' or 'vari'
+  const [hasError, setHasError] = useState(false);
   const streamUrl = `/api/video/stream?mode=${mode}`;
+
+  const handleModeChange = (newMode) => {
+    setMode(newMode);
+    setHasError(false); // Reset error state on mode change
+  };
 
   return (
     <div className="w-full h-full bg-zinc-900 flex items-center justify-center relative overflow-hidden">
       {/* Real Video Stream Feed */}
-      <img 
-        src={streamUrl} 
-        alt="Live Drone Feed" 
-        className="w-full h-full object-cover grayscale-[20%] contrast-125"
-        onError={(e) => {
-          e.target.style.display = 'none';
-          e.target.nextSibling.style.display = 'flex';
-        }}
-      />
-
-      {/* Fallback/Overlay if stream fails */}
-      <div className="hidden absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 z-20">
-        <div className="text-white/20 font-bold text-4xl uppercase tracking-[1em] rotate-12 mb-4">
-          No Video Signal
+      {!hasError ? (
+        <img 
+          src={streamUrl} 
+          alt="Live Drone Feed" 
+          className="w-full h-full object-cover grayscale-[20%] contrast-125"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 z-20">
+          <div className="text-white/20 font-bold text-4xl uppercase tracking-[1em] rotate-12 mb-4">
+            No Video Signal
+          </div>
+          <div className="text-agri-neon text-xs font-mono animate-pulse mb-8">
+            CHECK CONNECTION / CAMERA STATUS
+          </div>
+          <button 
+            onClick={() => setHasError(false)}
+            className="px-6 py-2 border border-agri-neon text-agri-neon text-xs hover:bg-agri-neon hover:text-black transition-all"
+          >
+            RETRY CONNECTION
+          </button>
         </div>
-        <div className="text-agri-neon text-xs font-mono animate-pulse">
-          CHECK CONNECTION / CAMERA STATUS
-        </div>
-      </div>
+      )}
       
       {/* Background Video Stream Placeholder Overlay */}
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent z-10 pointer-events-none" />
@@ -36,13 +46,13 @@ export default function VideoContainer() {
       {/* Mode Toggle (Floating Button) */}
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex gap-4 pointer-events-auto">
         <button 
-          onClick={() => setMode('normal')}
+          onClick={() => handleModeChange('normal')}
           className={`px-4 py-1 text-[10px] font-bold tracking-widest uppercase border transition-all ${mode === 'normal' ? 'bg-white text-black border-white' : 'text-white/40 border-white/20 hover:border-white/60'}`}
         >
           Normal
         </button>
         <button 
-          onClick={() => setMode('vari')}
+          onClick={() => handleModeChange('vari')}
           className={`px-4 py-1 text-[10px] font-bold tracking-widest uppercase border transition-all ${mode === 'vari' ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_10px_#39FF14]' : 'text-agri-neon/40 border-agri-neon/20 hover:border-agri-neon/60'}`}
         >
           VARI (Health)

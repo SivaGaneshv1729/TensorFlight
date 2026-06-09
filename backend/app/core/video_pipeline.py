@@ -1,75 +1,106 @@
-# Enhanced OpenCV video processing pipeline
 import cv2
 import numpy as np
 import time
+import threading
 from typing import Optional
 
-class VideoPipeline:
-    def __init__(self, source: str = "0"):
-        self.source = source
+class VideoManager:
+    _instance = None
+    _lock = threading.Lock()
+
+    def __new__(cls):
+        with cls._lock:
+            if cls._instance is None:
+                cls._instance = super(VideoManager, cls).__new__(cls)
+                cls._instance._initialized = False
+            return cls._instance
+
+    def __init__(self):
+        if self._initialized:
+            return
+        self.source = "0"
         self.cap: Optional[cv2.VideoCapture] = None
+        self.last_frame: Optional[np.ndarray] = None
+        self.is_running = False
+        self.thread: Optional[threading.Thread] = None
+        self.clients_count = 0
+        self._initialized = True
 
-    def __enter__(self):
-        self.start_stream(self.source)
-        return self
+    def start(self, source: str = "0"):
+        with self._lock:
+            self.source = source
+            if not self.is_running:
+                self.is_running = True
+                self.thread = threading.Thread(target=self._capture_loop, daemon=True)
+                self.thread.start()
+                print(f"📹 Video Capture Thread Started for source {source}")
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.release()
+    def stop(self):
+        with self._lock:
+            self.is_running = False
+            if self.cap:
+                self.cap.release()
+                self.cap = None
+            print("📹 Video Capture Thread Stopped")
 
-    def start_stream(self, source: str = "0"):
+    def _capture_loop(self):
+        source = self.source
         if isinstance(source, str) and source.isdigit():
             source = int(source)
+        
         self.cap = cv2.VideoCapture(source)
         
-        if not self.cap.isOpened():
-            print(f"⚠️ Could not open video source {source}. Using mock stream.")
-            self.cap = None
+        while self.is_running:
+            if self.cap and self.cap.isOpened():
+                success, frame = self.cap.read()
+                if success:
+                    self.last_frame = frame
+                else:
+                    self.last_frame = self._generate_mock_frame()
+                    time.sleep(0.03) # Cap mock frame rate
+            else:
+                self.last_frame = self._generate_mock_frame()
+                time.sleep(0.03)
+            
+            # Small sleep to prevent pegged CPU if camera fails
+            if not self.cap or not self.cap.isOpened():
+                time.sleep(0.1)
 
     def _generate_mock_frame(self) -> np.ndarray:
-        """Generates a synthetic frame with some noise and text."""
         frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        # Add some random noise
-        noise = np.random.randint(0, 20, (480, 640, 3), dtype=np.uint8)
+        noise = np.random.randint(0, 15, (480, 640, 3), dtype=np.uint8)
         frame = cv2.add(frame, noise)
         
-        # Add "MOCK STREAM" text
-        cv2.putText(frame, "MOCK STREAM - NO CAMERA FOUND", (50, 240), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 255, 0), 2)
+        cv2.putText(frame, "SIGNAL LOST - MOCK STREAM", (120, 240), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 255), 2)
         
-        # Add a moving circle to simulate some activity
         t = time.time()
-        center = (int(320 + 100 * np.cos(t)), int(240 + 100 * np.sin(t)))
-        cv2.circle(frame, center, 20, (39, 255, 20), -1) # Agri-neon color
-        
+        center = (int(320 + 150 * np.cos(t)), int(240 + 100 * np.sin(t)))
+        cv2.circle(frame, center, 15, (39, 255, 20), -1)
         return frame
 
-    def calculate_vari(self, frame: np.ndarray) -> np.ndarray:
-        """Calculates Visible Atmospherically Resistant Index (VARI) for vegetation health."""
-        # Convert to float for calculation
-        b, g, r = cv2.split(frame.astype(np.float32))
+    def get_frame(self, mode: str = "normal") -> np.ndarray:
+        frame = self.last_frame
+        if frame is None:
+            frame = self._generate_mock_frame()
         
-        # VARI formula: (Green - Red) / (Green + Red - Blue)
-        # Adding a small epsilon to avoid division by zero
-        vari = (g - r) / (g + r - b + 1e-6)
-        
-        # Normalize the result to 0-255 range
-        vari_norm = cv2.normalize(vari, None, 0, 255, cv2.NORM_MINMAX).astype(np.uint8)
-        
-        # Apply a colormap to make it look like a thermal/health map
-        return cv2.applyColorMap(vari_norm, cv2.COLORMAP_JET)
-
-    def process_frame(self, frame: np.ndarray, mode: str = "normal") -> np.ndarray:
         if mode == "vari":
             return self.calculate_vari(frame)
         return frame
 
-    def read_frame(self) -> tuple[bool, np.ndarray]:
-        if self.cap and self.cap.isOpened():
-            return self.cap.read()
-        else:
-            return True, self._generate_mock_frame()
+    def calculate_vari(self, frame: np.ndarray) -> np.ndarray:
+        """Calculates Visible Atmospherically Resistant Index (VARI)."""
+        b, g, r = cv2.split(frame.astype(np.float32))
+        
+        # VARI = (Green - Red) / (Green + Red - Blue)
+        vari = (g - r) / (g + r - b + 1e-6)
+        
+        # VARI typically ranges from -1 to 1. 
+        # We'll map -0.2 to 0.4 to 0-255 for better contrast on vegetation
+        # Healthy plants are usually > 0.1
+        vari_clipped = np.clip(vari, -0.2, 0.4)
+        vari_norm = ((vari_clipped + 0.2) / 0.6 * 255).astype(np.uint8)
+        
+        return cv2.applyColorMap(vari_norm, cv2.COLORMAP_JET)
 
-    def release(self):
-        if self.cap:
-            self.cap.release()
-            self.cap = None
+video_manager = VideoManager()
