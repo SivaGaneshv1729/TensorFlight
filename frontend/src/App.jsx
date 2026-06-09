@@ -1,4 +1,6 @@
-import React from 'react'
+import React, { useRef } from 'react'
+import { Canvas } from '@react-three/fiber'
+import { View } from '@react-three/drei'
 import HUD from './components/HUD'
 import VideoContainer from './components/VideoContainer'
 import Sidebar from './components/Sidebar'
@@ -12,11 +14,12 @@ import useKeyboardControls from './useKeyboardControls'
 import useTelemetryStore from './store/useTelemetryStore'
 
 function App() {
+  const container = useRef()
   useWebSocket()
   useKeyboardControls()
   
   return (
-    <div className="relative w-screen h-screen bg-black text-white overflow-hidden font-sans">
+    <div ref={container} className="relative w-screen h-screen bg-black text-white overflow-hidden font-sans">
       {/* 3D Holographic Overlay */}
       <div className="absolute inset-0 z-10 pointer-events-none">
         <Scene />
@@ -42,6 +45,22 @@ function App() {
       <div className="absolute top-0 right-0 h-full z-30">
         <Sidebar />
       </div>
+
+      {/* Main Global Canvas for all Views */}
+      <Canvas 
+        eventSource={container} 
+        className="fixed inset-0 pointer-events-none" 
+        style={{ zIndex: 15 }}
+        shadows 
+        dpr={[1, 2]}
+        gl={{ 
+          antialias: true, 
+          logarithmicDepthBuffer: true,
+          powerPreference: "high-performance"
+        }}
+      >
+        <View.Port />
+      </Canvas>
     </div>
   )
 }
