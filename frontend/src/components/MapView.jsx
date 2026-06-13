@@ -45,6 +45,7 @@ function MapClickHandler({ onMapClick }) {
 export default function MapView({ onClose }) {
   const { latitude, longitude } = useTelemetryStore((state) => state.telemetry.drone_state.gps)
   const heading = useTelemetryStore((state) => state.telemetry.drone_state.orientation_deg.yaw_heading)
+  const isArmed = useTelemetryStore((state) => state.telemetry.is_active)
   const [waypoints, setWaypoints] = useState([])
   const [forceCenter, setForceCenter] = useState(false)
   const [selectedTarget, setSelectedTarget] = useState(null)
@@ -53,6 +54,11 @@ export default function MapView({ onClose }) {
   const [plannerMode, setPlannerMode] = useState(false)
   const [polygon, setPolygon] = useState([])
   const [aiPath, setAiPath] = useState([])
+
+  // Multi-Point Manual Mode States
+  const [multiPointMode, setMultiPointMode] = useState(false)
+  const [queuedPoints, setQueuedPoints] = useState([])
+  const [blinkOpacity, setBlinkOpacity] = useState(0.8)
 
   const dronePos = [latitude, longitude]
 
@@ -65,6 +71,20 @@ export default function MapView({ onClose }) {
   function mathCos(deg) {
     return Math.cos(deg * Math.PI / 180);
   }
+
+  // Blinking effect logic when drone is armed and executing a route
+  const isMoving = isArmed && (waypoints.length > 0 || selectedTarget || queuedPoints.length > 0)
+
+  useEffect(() => {
+    if (!isMoving) {
+      setBlinkOpacity(0.8)
+      return
+    }
+    const interval = setInterval(() => {
+      setBlinkOpacity(prev => (prev === 0.8 ? 0.25 : 0.8))
+    }, 400)
+    return () => clearInterval(interval)
+  }, [isMoving])
 
   // 4 Quadrants bounds
   const cityBounds = [[homeLat, homeLon - 600 * lonPerMeter], [homeLat + 600 * latPerMeter, homeLon]];
@@ -179,6 +199,8 @@ export default function MapView({ onClose }) {
   const handleMapClick = (latlng) => {
     if (plannerMode) {
       setPolygon([...polygon, { lat: latlng.lat, lon: latlng.lng }])
+    } else if (multiPointMode) {
+      setQueuedPoints([...queuedPoints, { lat: latlng.lat, lon: latlng.lng }])
     } else {
       setSelectedTarget({ lat: latlng.lat, lon: latlng.lng })
     }
@@ -266,10 +288,24 @@ export default function MapView({ onClose }) {
     setSelectedTarget(null)
   }
 
+  const uploadQueuedMission = async () => {
+    if (queuedPoints.length === 0) return
+    setWaypoints(queuedPoints)
+    try {
+      await axios.post('/api/command', {
+        action: 'GOTO_WAYPOINTS',
+        params: { waypoints: queuedPoints }
+      })
+    } catch (err) {}
+    setQueuedPoints([])
+    setMultiPointMode(false)
+  }
+
   const clearWaypoints = () => {
     setWaypoints([])
     setPolygon([])
     setAiPath([])
+    setQueuedPoints([])
     setSelectedTarget(null)
   }
 
@@ -287,7 +323,13 @@ export default function MapView({ onClose }) {
         
         <div className="flex gap-2">
            <button 
-             onClick={() => { setPlannerMode(!plannerMode); clearWaypoints(); }}
+             onClick={() => { setMultiPointMode(!multiPointMode); setPlannerMode(false); clearWaypoints(); }}
+             className={`text-[10px] px-3 py-1.5 rounded-lg border transition-colors uppercase font-bold flex items-center gap-1 ${multiPointMode ? 'bg-agri-neon/20 text-agri-neon border-agri-neon/40 shadow-[0_0_8px_rgba(57,255,20,0.25)]' : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/10'}`}
+           >
+             <Navigation size={12} /> {multiPointMode ? 'Exit Multi-Point' : 'Multi-Point Route'}
+           </button>
+           <button 
+             onClick={() => { setPlannerMode(!plannerMode); setMultiPointMode(false); clearWaypoints(); }}
              className={`text-[10px] px-3 py-1.5 rounded-lg border transition-colors uppercase font-bold flex items-center gap-1 ${plannerMode ? 'bg-agri-gold/20 text-agri-gold border-agri-gold/40' : 'bg-white/5 hover:bg-white/10 text-gray-300 border-white/10'}`}
            >
              <Brain size={12} /> {plannerMode ? 'Exit AI Planner' : 'AI Path Planner'}
@@ -296,13 +338,13 @@ export default function MapView({ onClose }) {
              onClick={() => setForceCenter(true)}
              className="text-[10px] bg-blue-500/20 hover:bg-blue-500/40 text-blue-400 px-3 py-1.5 rounded-lg border border-blue-500/30 transition-colors uppercase font-bold"
            >
-             Center Drone
+             Center
            </button>
            <button 
              onClick={clearWaypoints}
              className="text-[10px] bg-red-500/20 hover:bg-red-500/40 text-red-400 px-3 py-1.5 rounded-lg border border-red-500/30 transition-colors uppercase font-bold"
            >
-             Reset Mission
+             Reset
            </button>
            <button onClick={onClose} className="text-gray-400 hover:text-white ml-3">
              <X size={20} />
@@ -360,8 +402,8 @@ export default function MapView({ onClose }) {
             <Rectangle 
               key={`sky-${idx}`} 
               bounds={[
-                [sky.lat - (sky.length / 2) * latPerMeter, sky.lon - (sky.width / 2) * lonPerMeter], 
-                [sky.lat + (sky.length / 2) * latPerMeter, sky.lon + (sky.width / 2) * lonPerMeter]
+                [sky.lat - (sky.width / 2) * latPerMeter, sky.lon - (sky.width / 2) * lonPerMeter], 
+                [sky.lat + (sky.width / 2) * latPerMeter, sky.lon + (sky.width / 2) * lonPerMeter]
               ]} 
               color="#334155" 
               fillColor="#475569" 
@@ -386,13 +428,39 @@ export default function MapView({ onClose }) {
             />
           )}
 
-          {/* Drone Active Path */}
-          <Polyline 
-            positions={[dronePos, ...waypoints.map(wp => [wp.lat, wp.lon])]} 
-            color="#00ffcc" 
-            dashArray="4, 6"
-            weight={2.5}
-          />
+          {/* Drone Active Path (Blinking continuous green line) */}
+          {waypoints.length > 0 && (
+            <Polyline 
+              positions={[dronePos, ...waypoints.map(wp => [wp.lat, wp.lon])]} 
+              color="#39FF14" 
+              weight={3.5}
+              opacity={blinkOpacity}
+            />
+          )}
+
+          {/* Multi-Point Route Queue Preview Line */}
+          {multiPointMode && queuedPoints.length > 0 && (
+            <Polyline 
+              positions={[dronePos, ...queuedPoints.map(p => [p.lat, p.lon])]} 
+              color="#fbbf24" 
+              dashArray="5, 8"
+              weight={2.5}
+            />
+          )}
+
+          {/* Queued Waypoints Numbered Markers */}
+          {multiPointMode && queuedPoints.map((pt, idx) => (
+            <Marker 
+              key={`qp-${idx}`}
+              position={[pt.lat, pt.lon]} 
+              icon={new L.DivIcon({
+                html: `<div class="bg-black border-2 border-agri-neon rounded-full w-5 h-5 flex items-center justify-center text-[9px] font-bold text-agri-neon shadow-[0_0_8px_rgba(57,255,20,0.6)]">${idx + 1}</div>`,
+                className: 'queued-wp-marker',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+              })}
+            />
+          ))}
 
           {/* AI Path Planner Drawings */}
           {polygon.length > 0 && (
@@ -465,6 +533,38 @@ export default function MapView({ onClose }) {
                 className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] px-4 py-2 rounded-xl transition-colors uppercase tracking-wider"
               >
                 Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Multi-Point Route Planner Panel */}
+        {multiPointMode && queuedPoints.length > 0 && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 bg-black/90 border border-white/10 rounded-2xl p-4 flex flex-col gap-3 z-[1000] w-80 backdrop-blur-md shadow-2xl animate-in slide-in-from-bottom-4 duration-200">
+            <div className="text-[10px] font-bold text-agri-neon uppercase tracking-widest flex items-center gap-1.5">
+              <Navigation size={14} className="text-agri-neon animate-pulse" /> Multi-Point Route
+            </div>
+            
+            <div className="text-[10px] text-gray-400 font-sans">
+              Click sequentially on the map to add target points. Click 'Upload Mission' to begin flight.
+            </div>
+
+            <div className="grid grid-cols-2 gap-2 text-[10px] font-mono text-gray-300 bg-white/5 p-2 rounded-lg border border-white/5">
+              <div>Waypoints: <span className="text-white font-bold">{queuedPoints.length}</span></div>
+            </div>
+            
+            <div className="flex gap-2">
+              <button 
+                onClick={uploadQueuedMission}
+                className="flex-1 bg-agri-neon text-black font-extrabold text-[10px] py-2 rounded-xl transition-colors uppercase tracking-wider shadow-[0_0_8px_rgba(57,255,20,0.4)]"
+              >
+                Upload Mission
+              </button>
+              <button 
+                onClick={clearWaypoints}
+                className="bg-white/10 hover:bg-white/20 text-white font-bold text-[10px] px-4 py-2 rounded-xl transition-colors uppercase tracking-wider"
+              >
+                Clear
               </button>
             </div>
           </div>

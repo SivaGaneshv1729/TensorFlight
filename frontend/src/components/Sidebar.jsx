@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { Settings as SettingsIcon, Map as MapIcon, Activity, ShieldAlert, Play, Square, Home, FastForward, ArrowUpCircle, X } from 'lucide-react'
+import { Settings as SettingsIcon, Satellite, Activity, ShieldAlert, Play, Square, Home, FastForward, ArrowUpCircle, X } from 'lucide-react'
 import axios from 'axios'
 import useTelemetryStore from '../store/useTelemetryStore'
 import MapView from './MapView'
@@ -60,9 +60,10 @@ export default function Sidebar() {
               }).catch(() => {});
             }
           }}
-          className={`p-3 rounded-xl transition-colors ${showMap ? 'text-agri-gold bg-agri-gold/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
+          className={`p-3 rounded-xl transition-colors group relative ${showMap ? 'text-agri-gold bg-agri-gold/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
         >
-          <MapIcon size={24} />
+          <Satellite size={24} className={showMap ? 'animate-spin' : ''} style={showMap ? { animationDuration: '10s' } : {}} />
+          <span className="absolute left-[-85px] bg-black text-[10px] p-1 rounded opacity-0 group-hover:opacity-100 transition-opacity uppercase font-bold tracking-wider">Tactical Map</span>
         </button>
         <button 
           onClick={() => { setShowSettings(!showSettings); setShowMap(false); }}
