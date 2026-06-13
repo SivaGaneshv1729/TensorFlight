@@ -43,16 +43,14 @@ export default function HUD() {
               <span className="text-gray-400 uppercase">Bat:</span>
               <span className="text-agri-neon">{battery}%</span>
             </div>
+            <div className="bg-black/40 px-4 py-1 rounded-full border border-white/5 backdrop-blur-sm flex gap-3 text-[10px] font-mono">
+              <span className="text-gray-400 uppercase">GPS:</span>
+              <span className="text-agri-gold">{lat.toFixed(6)}, {lon.toFixed(6)}</span>
+            </div>
           </div>
         </div>
         
-        <div className="bg-black/40 border-r-4 border-agri-gold p-4 backdrop-blur-sm text-right">
-          <h2 className="text-agri-gold text-xs font-bold uppercase tracking-widest mb-1">Navigation</h2>
-          <div className="text-sm font-mono text-white/90">
-            {lat.toFixed(6)}<br />
-            {lon.toFixed(6)}
-          </div>
-        </div>
+        <div className="w-64" /> {/* Spacer to align status content */}
       </div>
 
       {/* Bottom HUD Elements (e.g. Artificial Horizon) */}
