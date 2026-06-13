@@ -4,6 +4,7 @@ import { sendSocketMessage } from './useWebSocket'
 
 export default function useKeyboardControls() {
   const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
+  const setActiveCommands = useTelemetryStore((state) => state.setActiveCommands)
 
   useEffect(() => {
     const activeKeys = new Set()
@@ -18,6 +19,8 @@ export default function useKeyboardControls() {
       if (activeKeys.has('ArrowDown') || activeKeys.has('ShiftLeft')) activeCommands.push('ALT_DOWN')
       if (activeKeys.has('ArrowLeft') || activeKeys.has('KeyQ')) activeCommands.push('YAW_LEFT')
       if (activeKeys.has('ArrowRight') || activeKeys.has('KeyE')) activeCommands.push('YAW_RIGHT')
+
+      setActiveCommands(activeCommands)
 
       sendSocketMessage({ 
         action: 'MANUAL_CONTROL', 

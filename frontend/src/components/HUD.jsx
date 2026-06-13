@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { AlertTriangle, ShieldAlert, ShieldCheck, Eye, Target, Wind, Orbit } from 'lucide-react'
 import useTelemetryStore from '../store/useTelemetryStore'
 
@@ -12,6 +12,10 @@ export default function HUD() {
   
   const cameraMode = useTelemetryStore((state) => state.cameraMode)
   const setCameraMode = useTelemetryStore((state) => state.setCameraMode)
+
+  const orientation = useTelemetryStore((state) => state.telemetry.drone_state.orientation_deg) || { pitch: 0, roll: 0, yaw_heading: 0 }
+  const activeCommands = useTelemetryStore((state) => state.activeCommands) || []
+  const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
 
   const aiAnalysis = useTelemetryStore((state) => state.telemetry.ai_analysis) || {
     weed_count: 0,
@@ -203,14 +207,121 @@ export default function HUD() {
         </div>
       </div>
 
-      {/* Bottom HUD Elements (e.g. Artificial Horizon) */}
-      <div className="flex justify-center">
-        <div className="w-64 h-2 border-x-2 border-b-2 border-white/20 relative">
-          <div 
-            className="absolute top-0 h-full bg-agri-neon/50 transition-all duration-100" 
-            style={{ width: `${battery}%` }}
-          />
+      {/* Bottom HUD Dashboard (GCS Flight Deck) */}
+      <div className="flex justify-between items-end gap-6 w-full max-w-5xl mx-auto z-30 pointer-events-none select-none">
+        
+        {/* Left: System Health Console */}
+        <div className="flex flex-col gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-3 w-56 font-mono text-[9px] pointer-events-auto text-gray-300">
+          <div className="text-agri-gold font-bold uppercase tracking-wider mb-1 border-b border-white/10 pb-1 flex items-center gap-1.5">
+            <span className="w-1.5 h-1.5 rounded-full bg-agri-gold animate-ping" /> System Health
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">SPEED (EST):</span>
+            <span className="text-white font-bold">
+              {(Math.sqrt(Math.pow(orientation.pitch, 2) + Math.pow(orientation.roll, 2)) * 0.8).toFixed(1)} m/s
+            </span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">FORWARD SENS:</span>
+            <span className="text-agri-neon font-bold">{forwardSpeed}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">CLIMB SENS:</span>
+            <span className="text-blue-400 font-bold">{climbSpeed}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-500">LINK LATENCY:</span>
+            <span className="text-green-400 font-bold">12ms (99.8%)</span>
+          </div>
+          <div className="border-t border-white/5 pt-1.5 mt-1 text-[7.5px] text-gray-500 space-y-0.5">
+            <div>W/S: PITCH | A/D: ROLL</div>
+            <div>Q/E: YAW | SPACE/SHIFT: ALT</div>
+          </div>
         </div>
+
+        {/* Center: Primary Flight Display (PFD) */}
+        <div className="flex flex-col items-center bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-3 w-80 relative overflow-hidden pointer-events-auto">
+          <div className="text-gray-400 font-mono text-[8px] uppercase tracking-wider mb-2">Primary Flight Display</div>
+          
+          {/* Telemetry metrics row */}
+          <div className="flex justify-between w-full font-mono text-[9px] text-gray-300 border-b border-white/10 pb-2 mb-2">
+            <div className="flex flex-col items-center">
+              <span className="text-gray-500 uppercase text-[7px]">Pitch</span>
+              <span className="text-white font-bold">{orientation.pitch.toFixed(1)}°</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-gray-500 uppercase text-[7px]">Roll</span>
+              <span className="text-white font-bold">{orientation.roll.toFixed(1)}°</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-gray-500 uppercase text-[7px]">Heading</span>
+              <span className="text-agri-gold font-bold">{orientation.yaw_heading.toFixed(0)}°</span>
+            </div>
+            <div className="flex flex-col items-center">
+              <span className="text-gray-500 uppercase text-[7px]">V-Speed</span>
+              <span className={`font-bold ${activeCommands.includes('ALT_UP') ? 'text-green-400' : activeCommands.includes('ALT_DOWN') ? 'text-red-400' : 'text-white'}`}>
+                {activeCommands.includes('ALT_UP') ? '+2.0' : activeCommands.includes('ALT_DOWN') ? '-2.0' : '0.0'} m/s
+              </span>
+            </div>
+          </div>
+
+          {/* Pitch/Roll horizon visualizer */}
+          <div className="relative w-44 h-16 border border-white/10 rounded overflow-hidden bg-zinc-950 flex items-center justify-center">
+            {/* Skyline element */}
+            <div 
+              className="absolute inset-0 bg-blue-950/40 border-t-2 border-agri-neon transition-transform duration-100"
+              style={{
+                transform: `translateY(${orientation.pitch * 0.8}px) rotate(${orientation.roll}deg)`,
+                transformOrigin: 'center'
+              }}
+            />
+            <div className="w-12 h-[1px] bg-red-500 z-10 absolute" />
+            <div className="w-1 h-1 bg-red-500 rounded-full z-10 absolute" />
+          </div>
+
+          {/* Battery capacity progress bar */}
+          <div className="w-full mt-3">
+            <div className="flex justify-between text-[7.5px] font-mono text-gray-400 mb-1">
+              <span>BATTERY STORAGE CAPACITY</span>
+              <span className="text-agri-neon font-bold">{battery}%</span>
+            </div>
+            <div className="w-full h-1.5 bg-white/10 rounded-full overflow-hidden">
+              <div 
+                className="h-full bg-gradient-to-r from-red-500 via-yellow-500 to-agri-neon transition-all duration-300"
+                style={{ width: `${battery}%` }}
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Right: Active Inputs Keyboard Visualizer */}
+        <div className="flex flex-col gap-1.5 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg p-3 w-56 font-mono text-[9px] pointer-events-auto">
+          <div className="text-agri-neon font-bold uppercase tracking-wider mb-1 border-b border-white/10 pb-1 flex items-center gap-1.5">
+            <Orbit className="animate-pulse" size={10} /> Active Controller Inputs
+          </div>
+          
+          {/* Key Visualizer Grid */}
+          <div className="grid grid-cols-3 gap-1 text-center font-bold my-1">
+            <div />
+            <div className={`p-1 rounded border transition-colors ${activeCommands.includes('PITCH_FORWARD') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>W</div>
+            <div />
+
+            <div className={`p-1 rounded border transition-colors ${activeCommands.includes('ROLL_LEFT') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>A</div>
+            <div className={`p-1 rounded border transition-colors ${activeCommands.includes('PITCH_BACK') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>S</div>
+            <div className={`p-1 rounded border transition-colors ${activeCommands.includes('ROLL_RIGHT') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>D</div>
+          </div>
+          
+          <div className="flex justify-between gap-1 mt-1 font-bold text-center">
+            <div className={`flex-1 py-0.5 rounded border text-[8px] transition-colors ${activeCommands.includes('YAW_LEFT') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>Q (YAW L)</div>
+            <div className={`flex-1 py-0.5 rounded border text-[8px] transition-colors ${activeCommands.includes('YAW_RIGHT') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>E (YAW R)</div>
+          </div>
+
+          <div className="flex justify-between gap-1 font-bold text-center">
+            <div className={`flex-1 py-0.5 rounded border text-[8px] transition-colors ${activeCommands.includes('ALT_UP') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>SPACE (ALT UP)</div>
+            <div className={`flex-1 py-0.5 rounded border text-[8px] transition-colors ${activeCommands.includes('ALT_DOWN') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_8px_#39FF14]' : 'bg-white/5 border-white/10 text-white/40'}`}>SHIFT (ALT DN)</div>
+          </div>
+        </div>
+
       </div>
     </div>
   )
