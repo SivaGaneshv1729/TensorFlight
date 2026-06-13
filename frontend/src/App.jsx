@@ -17,6 +17,8 @@ function App() {
   const container = useRef()
   useWebSocket()
   useKeyboardControls()
+  const showMap = useTelemetryStore((state) => state.showMap)
+  const setShowMap = useTelemetryStore((state) => state.setShowMap)
   
   return (
     <div ref={container} className="relative w-screen h-screen bg-black text-white overflow-hidden font-sans">
@@ -44,6 +46,9 @@ function App() {
       <div className="absolute top-0 right-0 h-full z-30">
         <Sidebar />
       </div>
+
+      {/* Map Modal/Overlay */}
+      {showMap && <MapView onClose={() => setShowMap(false)} />}
 
       {/* Main Global Canvas for all Views */}
       <Canvas 

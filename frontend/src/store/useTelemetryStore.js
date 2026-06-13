@@ -24,6 +24,8 @@ const useTelemetryStore = create((set) => ({
   setSettings: (newSettings) => set((state) => ({ 
     settings: { ...state.settings, ...newSettings } 
   })),
+  showMap: false,
+  setShowMap: (showMap) => set({ showMap })
 }))
 
 export default useTelemetryStore

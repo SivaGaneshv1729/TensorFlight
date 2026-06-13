@@ -7,8 +7,9 @@ import MapView from './MapView'
 export default function Sidebar() {
   const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
   const setSettings = useTelemetryStore((state) => state.setSettings)
+  const showMap = useTelemetryStore((state) => state.showMap)
+  const setShowMap = useTelemetryStore((state) => state.setShowMap)
   const [showSettings, setShowSettings] = useState(false)
-  const [showMap, setShowMap] = useState(false)
 
   const sendCommand = async (action) => {
     try {
@@ -48,7 +49,17 @@ export default function Sidebar() {
         <div className="w-10 h-[1px] bg-white/10" />
 
         <button 
-          onClick={() => { setShowMap(!showMap); setShowSettings(false); }}
+          onClick={() => { 
+            const nextShowMap = !showMap;
+            setShowMap(nextShowMap); 
+            setShowSettings(false); 
+            if (nextShowMap) {
+              axios.post('/api/command', {
+                action: 'MANUAL_CONTROL',
+                params: { inputs: [], forward_speed: forwardSpeed, climb_speed: climbSpeed }
+              }).catch(() => {});
+            }
+          }}
           className={`p-3 rounded-xl transition-colors ${showMap ? 'text-agri-gold bg-agri-gold/10' : 'text-gray-400 hover:text-white hover:bg-white/5'}`}
         >
           <MapIcon size={24} />
@@ -69,9 +80,6 @@ export default function Sidebar() {
           </button>
         </div>
       </div>
-
-      {/* Map Modal/Overlay */}
-      {showMap && <MapView onClose={() => setShowMap(false)} />}
 
       {/* Settings Modal/Overlay */}
       {showSettings && (
