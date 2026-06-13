@@ -344,14 +344,50 @@ async def simulate_drone():
                                 v_alt = vel_alt
                                 v_yaw = vel_yaw
 
-                            # 6. Position Update
+                            # 6. Position Update with Strict Hard-Collision Enforcement
                             rad = math.radians(heading)
-                            lat += (v_forward * math.cos(rad) - v_right * math.sin(rad))
-                            lon += (v_forward * math.sin(rad) + v_right * math.cos(rad))
+                            next_lat = lat + (v_forward * math.cos(rad) - v_right * math.sin(rad))
+                            next_lon = lon + (v_forward * math.sin(rad) + v_right * math.cos(rad))
+                            next_alt = alt + v_alt
+                            if next_alt < 0: next_alt = 0
+
+                            # Convert tentative next coordinates to 3D relative positions
+                            next_x_3d = (next_lon - home_lon) / lonPerMeter
+                            next_z_3d = -(next_lat - home_lat) / latPerMeter
+
+                            # Check for hard collisions
+                            collides = False
                             
-                            alt += v_alt
-                            heading = (heading + v_yaw) % 360
-                            if alt < 0: alt = 0
+                            # Skyscrapers
+                            for bx, bz in SKYSCRAPERS:
+                                dist_to_b = math.sqrt((next_x_3d - bx)**2 + (next_z_3d - bz)**2)
+                                if dist_to_b < 10.0 and next_alt < 65.0: # Hard boundary
+                                    collides = True
+                            
+                            # Trees
+                            for tx, tz in VEGETATION:
+                                dist_to_t = math.sqrt((next_x_3d - tx)**2 + (next_z_3d - tz)**2)
+                                if dist_to_t < 3.0 and next_alt < 6.5: # Hard boundary
+                                    collides = True
+                                    
+                            # Barn Complex
+                            dist_to_barn = math.sqrt((next_x_3d - 150)**2 + (next_z_3d - (-200))**2)
+                            if dist_to_barn < 15.0 and next_alt < 13.0: # Hard boundary
+                                collides = True
+
+                            if collides:
+                                # Lock movement and zero out velocities
+                                vel_forward = 0.0
+                                vel_right = 0.0
+                                vel_alt = 0.0
+                                collision_warning = True
+                                heading = (heading + v_yaw) % 360
+                                # Keep lat, lon, alt at current values
+                            else:
+                                lat = next_lat
+                                lon = next_lon
+                                alt = next_alt
+                                heading = (heading + v_yaw) % 360
                         else:
                             vel_forward = vel_right = vel_yaw = 0.0
                             if alt > 0: 
