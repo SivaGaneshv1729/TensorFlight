@@ -4,18 +4,46 @@ import time
 import json
 import websockets
 
+def seed_random(i, seed):
+    val = math.sin(i * 12.9898 + seed * 78.233) * 43758.5453123
+    return val - math.floor(val)
+
 # Mapped assets matching Environment.jsx for Collision Avoidance
 VEGETATION = []
-for i in range(250):
-    angle = (i / 250) * math.pi * 2 * 13
-    dist = 45 + (i * 6)
-    VEGETATION.append((math.cos(angle) * dist, math.sin(angle) * dist)) # (x, z)
+# 1. Village trees (deciduous)
+for i in range(80):
+    randAngle = seed_random(i, 1)
+    randDist = seed_random(i, 2)
+    angle = randAngle * math.pi * 0.5 + math.pi
+    dist = 50.0 + randDist * 400.0
+    x = math.sin(angle) * dist
+    z = -abs(math.cos(angle) * dist)
+    VEGETATION.append((x, z))
+
+# 2. Pine trees
+for i in range(80):
+    randAngle = seed_random(i, 4)
+    randDist = seed_random(i, 5)
+    angle = randAngle * math.pi * 0.5
+    dist = 60.0 + randDist * 400.0
+    x = abs(math.sin(angle) * dist)
+    z = abs(math.cos(angle) * dist)
+    VEGETATION.append((x, z))
 
 SKYSCRAPERS = []
 for i in range(28):
-    x = -40 - (i % 5) * 80
-    z = -40 - (i // 5) * 80
-    SKYSCRAPERS.append((x, z))
+    randX = seed_random(i, 1)
+    randZ = seed_random(i, 2)
+    x = -40 - (i % 5) * 80 + (randX - 0.5) * 15.0
+    z = -40 - (i // 5) * 80 + (randZ - 0.5) * 15.0
+    height = 20.0 + randX * 55.0
+    width = 14.0 + randZ * 8.0
+    SKYSCRAPERS.append({
+        "x": x,
+        "z": z,
+        "height": height,
+        "width": width
+    })
 
 async def simulate_drone():
     url = "ws://127.0.0.1:8000/ws/simulator"
@@ -152,13 +180,16 @@ async def simulate_drone():
                         # 3. 3D Collision Avoidance System
                         collision_warning = False
                         if is_armed and alt > 0.2:
-                            # Check buildings (Skyscrapers NW)
-                            for bx, bz in SKYSCRAPERS:
-                                dist_to_b = math.sqrt((x_3d - bx)**2 + (z_3d - bz)**2)
-                                if dist_to_b < 12.0 and alt < 65.0: # Critical range around skyscraper
+                            # Check buildings (Skyscrapers NW) using exact AABB warning zones
+                            for b in SKYSCRAPERS:
+                                dx = abs(x_3d - b["x"])
+                                dz = abs(z_3d - b["z"])
+                                half_w = b["width"] / 2.0
+                                # 3.0 meters safety margin warning envelope
+                                if dx < (half_w + 3.0) and dz < (half_w + 3.0) and alt < b["height"]:
                                     collision_warning = True
                             
-                            # Check trees
+                            # Check trees (using warning radius of 4.0m)
                             for tx, tz in VEGETATION:
                                 dist_to_t = math.sqrt((x_3d - tx)**2 + (z_3d - tz)**2)
                                 if dist_to_t < 4.0 and alt < 6.5: # Tree branch range
@@ -358,16 +389,18 @@ async def simulate_drone():
                             # Check for hard collisions
                             collides = False
                             
-                            # Skyscrapers
-                            for bx, bz in SKYSCRAPERS:
-                                dist_to_b = math.sqrt((next_x_3d - bx)**2 + (next_z_3d - bz)**2)
-                                if dist_to_b < 10.0 and next_alt < 65.0: # Hard boundary
+                            # Skyscrapers (Exact AABB collision box check)
+                            for b in SKYSCRAPERS:
+                                dx = abs(next_x_3d - b["x"])
+                                dz = abs(next_z_3d - b["z"])
+                                half_w = b["width"] / 2.0
+                                if dx < half_w and dz < half_w and next_alt < b["height"]:
                                     collides = True
                             
                             # Trees
                             for tx, tz in VEGETATION:
                                 dist_to_t = math.sqrt((next_x_3d - tx)**2 + (next_z_3d - tz)**2)
-                                if dist_to_t < 3.0 and next_alt < 6.5: # Hard boundary
+                                if dist_to_t < 2.5 and next_alt < 6.5: # Hard boundary
                                     collides = True
                                     
                             # Barn Complex

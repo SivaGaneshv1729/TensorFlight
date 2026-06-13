@@ -8,46 +8,59 @@ import * as THREE from 'three'
 // SW: Desert & Cacti (X < -10, Z > 10)
 // SE: Mountain Peaks (X > 10, Z > 10)
 
+function seedRandom(i, seed) {
+  const x = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453123;
+  return x - Math.floor(x);
+}
+
 const VILLAGE_TREES = []
 for (let i = 0; i < 80; i++) {
-  const angle = Math.random() * Math.PI * 0.5 + Math.PI // Top-Right NE quadrant
-  const dist = 50 + Math.random() * 500
+  const randAngle = seedRandom(i, 1)
+  const randDist = seedRandom(i, 2)
+  const angle = randAngle * Math.PI * 0.5 + Math.PI // Top-Right NE quadrant
+  const dist = 50 + randDist * 400
   VILLAGE_TREES.push({
     position: [Math.sin(angle) * dist, 0, -Math.abs(Math.cos(angle) * dist)],
-    scale: 0.8 + Math.random() * 0.5,
+    scale: 0.8 + seedRandom(i, 3) * 0.5,
     type: 'deciduous'
   })
 }
 
 const PINE_TREES = []
 for (let i = 0; i < 80; i++) {
-  const angle = Math.random() * Math.PI * 0.5 // Bottom-Right SE quadrant
-  const dist = 60 + Math.random() * 450
+  const randAngle = seedRandom(i, 4)
+  const randDist = seedRandom(i, 5)
+  const angle = randAngle * Math.PI * 0.5 // Bottom-Right SE quadrant
+  const dist = 60 + randDist * 400
   PINE_TREES.push({
     position: [Math.abs(Math.sin(angle) * dist), 0, Math.abs(Math.cos(angle) * dist)],
-    scale: 0.9 + Math.random() * 0.6,
+    scale: 0.9 + seedRandom(i, 6) * 0.6,
     type: 'pine'
   })
 }
 
 const MOUNTAINS = []
 for (let i = 0; i < 12; i++) {
-  const angle = Math.random() * Math.PI * 0.4 // Far bottom right SE quadrant
-  const dist = 250 + Math.random() * 400
+  const randAngle = seedRandom(i, 7)
+  const randDist = seedRandom(i, 8)
+  const angle = randAngle * Math.PI * 0.4 // Far bottom right SE quadrant
+  const dist = 250 + randDist * 400
   MOUNTAINS.push({
     position: [Math.abs(Math.sin(angle) * dist) + 50, -30, Math.abs(Math.cos(angle) * dist) + 50],
-    scale: [80 + Math.random() * 80, 120 + Math.random() * 150, 80 + Math.random() * 80],
-    rotation: [0, Math.random() * Math.PI, 0]
+    scale: [80 + seedRandom(i, 9) * 80, 120 + seedRandom(i, 10) * 150, 80 + seedRandom(i, 11) * 80],
+    rotation: [0, seedRandom(i, 12) * Math.PI, 0]
   })
 }
 
 const SKYSCRAPERS = []
 for (let i = 0; i < 28; i++) {
   // Top-Left NW quadrant
-  const x = -40 - (i % 5) * 80 + (Math.random() - 0.5) * 15
-  const z = -40 - Math.floor(i / 5) * 80 + (Math.random() - 0.5) * 15
-  const height = 20 + Math.random() * 55
-  const width = 14 + Math.random() * 8
+  const randX = seedRandom(i, 1)
+  const randZ = seedRandom(i, 2)
+  const x = -40 - (i % 5) * 80 + (randX - 0.5) * 15
+  const z = -40 - Math.floor(i / 5) * 80 + (randZ - 0.5) * 15
+  const height = 20 + randX * 55
+  const width = 14 + randZ * 8
   SKYSCRAPERS.push({
     position: [x, 0, z],
     width,
@@ -59,22 +72,22 @@ for (let i = 0; i < 28; i++) {
 const CACTI = []
 for (let i = 0; i < 35; i++) {
   // Bottom-Left SW quadrant
-  const x = -30 - Math.random() * 500
-  const z = 30 + Math.random() * 500
+  const x = -30 - seedRandom(i, 13) * 500
+  const z = 30 + seedRandom(i, 14) * 500
   CACTI.push({
     position: [x, 0, z],
-    scale: 1.0 + Math.random() * 1.2
+    scale: 1.0 + seedRandom(i, 15) * 1.2
   })
 }
 
 const DESERT_ROCKS = []
 for (let i = 0; i < 35; i++) {
-  const x = -30 - Math.random() * 500
-  const z = 30 + Math.random() * 500
+  const x = -30 - seedRandom(i, 16) * 500
+  const z = 30 + seedRandom(i, 17) * 500
   DESERT_ROCKS.push({
     position: [x, -0.4, z],
-    scale: 1.0 + Math.random() * 2.0,
-    rotation: [Math.random(), Math.random(), 0]
+    scale: 1.0 + seedRandom(i, 18) * 2.0,
+    rotation: [seedRandom(i, 19), seedRandom(i, 20), 0]
   })
 }
 

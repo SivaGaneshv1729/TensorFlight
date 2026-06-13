@@ -78,10 +78,16 @@ export default function MapView({ onClose }) {
 
   // Mapped 3D Assets coordinates for 2D overlays
   const villageTrees = useMemo(() => {
+    function seedRandom(idx, seed) {
+      const x = Math.sin(idx * 12.9898 + seed * 78.233) * 43758.5453123;
+      return x - Math.floor(x);
+    }
     const list = []
     for (let i = 0; i < 80; i++) {
-      const angle = (i / 80) * Math.PI * 0.5 + Math.PI
-      const dist = 50 + (i * 6)
+      const randAngle = seedRandom(i, 1)
+      const randDist = seedRandom(i, 2)
+      const angle = randAngle * Math.PI * 0.5 + Math.PI
+      const dist = 50 + randDist * 400
       const x = Math.sin(angle) * dist
       const z = -Math.abs(Math.cos(angle) * dist)
       list.push({ lat: homeLat + (-z * latPerMeter), lon: homeLon + (x * lonPerMeter) })
@@ -90,10 +96,16 @@ export default function MapView({ onClose }) {
   }, [homeLat, homeLon, latPerMeter, lonPerMeter])
 
   const pineTrees = useMemo(() => {
+    function seedRandom(idx, seed) {
+      const x = Math.sin(idx * 12.9898 + seed * 78.233) * 43758.5453123;
+      return x - Math.floor(x);
+    }
     const list = []
     for (let i = 0; i < 80; i++) {
-      const angle = (i / 80) * Math.PI * 0.5
-      const dist = 60 + (i * 5.5)
+      const randAngle = seedRandom(i, 4)
+      const randDist = seedRandom(i, 5)
+      const angle = randAngle * Math.PI * 0.5
+      const dist = 60 + randDist * 400
       const x = Math.abs(Math.sin(angle) * dist)
       const z = Math.abs(Math.cos(angle) * dist)
       list.push({ lat: homeLat + (-z * latPerMeter), lon: homeLon + (x * lonPerMeter) })
@@ -102,10 +114,16 @@ export default function MapView({ onClose }) {
   }, [homeLat, homeLon, latPerMeter, lonPerMeter])
 
   const mountains = useMemo(() => {
+    function seedRandom(idx, seed) {
+      const x = Math.sin(idx * 12.9898 + seed * 78.233) * 43758.5453123;
+      return x - Math.floor(x);
+    }
     const list = []
     for (let i = 0; i < 12; i++) {
-      const angle = (i / 12) * Math.PI * 0.4
-      const dist = 250 + (i * 30)
+      const randAngle = seedRandom(i, 7)
+      const randDist = seedRandom(i, 8)
+      const angle = randAngle * Math.PI * 0.4
+      const dist = 250 + randDist * 400
       const x = Math.abs(Math.sin(angle) * dist) + 50
       const z = Math.abs(Math.cos(angle) * dist) + 50
       list.push({ lat: homeLat + (-z * latPerMeter), lon: homeLon + (x * lonPerMeter) })
@@ -114,15 +132,22 @@ export default function MapView({ onClose }) {
   }, [homeLat, homeLon, latPerMeter, lonPerMeter])
 
   const skyscrapers = useMemo(() => {
+    function seedRandom(idx, seed) {
+      const x = Math.sin(idx * 12.9898 + seed * 78.233) * 43758.5453123;
+      return x - Math.floor(x);
+    }
     const list = []
     for (let i = 0; i < 28; i++) {
-      const x = -40 - (i % 5) * 80
-      const z = -40 - Math.floor(i / 5) * 80
+      const randX = seedRandom(i, 1)
+      const randZ = seedRandom(i, 2)
+      const x = -40 - (i % 5) * 80 + (randX - 0.5) * 15
+      const z = -40 - Math.floor(i / 5) * 80 + (randZ - 0.5) * 15
+      const width = 14 + randZ * 8
       list.push({
         lat: homeLat + (-z * latPerMeter),
         lon: homeLon + (x * lonPerMeter),
-        width: 14,
-        length: 14
+        width: width,
+        length: width
       })
     }
     return list
