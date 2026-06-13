@@ -2,84 +2,156 @@ import React, { useMemo } from 'react'
 import { Sky } from '@react-three/drei'
 import * as THREE from 'three'
 
-// SHARED WORLD DATA - Ensures consistency across all cameras
-const COLORS = {
-  grass: '#3f6212', // Lush field green
-  bark: '#451a03',
-  leaves: '#166534',
-  pine: '#14532d'
-}
+// 1. ASSET GENERATION BASED ON 4 QUADRANTS
+// NE: Village Crops (X > 10, Z < -10)
+// NW: City Skyscrapers (X < -10, Z < -10)
+// SW: Desert & Cacti (X < -10, Z > 10)
+// SE: Mountain Peaks (X > 10, Z > 10)
 
-// Deterministic placement for trees
-const VEGETATION = []
-for (let i = 0; i < 250; i++) {
-  const angle = (i / 250) * Math.PI * 2 * 13
-  const dist = 45 + (i * 6)
-  VEGETATION.push({
-    position: [Math.cos(angle) * dist, 0, Math.sin(angle) * dist],
-    scale: 0.9 + (i % 7) * 0.3,
-    type: i % 3 === 0 ? 'pine' : 'deciduous'
+const VILLAGE_TREES = []
+for (let i = 0; i < 80; i++) {
+  const angle = Math.random() * Math.PI * 0.5 + Math.PI // Top-Right NE quadrant
+  const dist = 50 + Math.random() * 500
+  VILLAGE_TREES.push({
+    position: [Math.sin(angle) * dist, 0, -Math.abs(Math.cos(angle) * dist)],
+    scale: 0.8 + Math.random() * 0.5,
+    type: 'deciduous'
   })
 }
 
-// Mountain peaks for the horizon
+const PINE_TREES = []
+for (let i = 0; i < 80; i++) {
+  const angle = Math.random() * Math.PI * 0.5 // Bottom-Right SE quadrant
+  const dist = 60 + Math.random() * 450
+  PINE_TREES.push({
+    position: [Math.abs(Math.sin(angle) * dist), 0, Math.abs(Math.cos(angle) * dist)],
+    scale: 0.9 + Math.random() * 0.6,
+    type: 'pine'
+  })
+}
+
 const MOUNTAINS = []
-for (let i = 0; i < 16; i++) {
-  const angle = (i / 16) * Math.PI * 2
-  const dist = 1400 + Math.random() * 200
+for (let i = 0; i < 12; i++) {
+  const angle = Math.random() * Math.PI * 0.4 // Far bottom right SE quadrant
+  const dist = 250 + Math.random() * 400
   MOUNTAINS.push({
-    position: [Math.cos(angle) * dist, -50, Math.sin(angle) * dist],
-    scale: [250 + Math.random() * 200, 350 + Math.random() * 400, 250 + Math.random() * 200],
+    position: [Math.abs(Math.sin(angle) * dist) + 50, -30, Math.abs(Math.cos(angle) * dist) + 50],
+    scale: [80 + Math.random() * 80, 120 + Math.random() * 150, 80 + Math.random() * 80],
     rotation: [0, Math.random() * Math.PI, 0]
+  })
+}
+
+const SKYSCRAPERS = []
+for (let i = 0; i < 28; i++) {
+  // Top-Left NW quadrant
+  const x = -40 - (i % 5) * 80 + (Math.random() - 0.5) * 15
+  const z = -40 - Math.floor(i / 5) * 80 + (Math.random() - 0.5) * 15
+  const height = 20 + Math.random() * 55
+  const width = 14 + Math.random() * 8
+  SKYSCRAPERS.push({
+    position: [x, 0, z],
+    width,
+    height,
+    length: width
+  })
+}
+
+const CACTI = []
+for (let i = 0; i < 35; i++) {
+  // Bottom-Left SW quadrant
+  const x = -30 - Math.random() * 500
+  const z = 30 + Math.random() * 500
+  CACTI.push({
+    position: [x, 0, z],
+    scale: 1.0 + Math.random() * 1.2
+  })
+}
+
+const DESERT_ROCKS = []
+for (let i = 0; i < 35; i++) {
+  const x = -30 - Math.random() * 500
+  const z = 30 + Math.random() * 500
+  DESERT_ROCKS.push({
+    position: [x, -0.4, z],
+    scale: 1.0 + Math.random() * 2.0,
+    rotation: [Math.random(), Math.random(), 0]
   })
 }
 
 function Terrain() {
   const terrainGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(4000, 4000, 80, 80) // High vertex count for bump detail
+    const geo = new THREE.PlaneGeometry(4000, 4000, 80, 80)
     const pos = geo.attributes.position
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i)
       const y = pos.getY(i)
       // Large rolling hills + medium ridges + high-frequency ground bumps
-      const h = Math.sin(x * 0.003) * Math.cos(y * 0.003) * 6.0 + 
-                Math.sin(x * 0.015) * Math.cos(y * 0.015) * 1.5 +
-                Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.35 + 
-                Math.sin(x * 0.3) * Math.cos(y * 0.3) * 0.08
+      let h = Math.sin(x * 0.003) * Math.cos(y * 0.003) * 6.0 + 
+              Math.sin(x * 0.015) * Math.cos(y * 0.015) * 1.5 +
+              Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.35 + 
+              Math.sin(x * 0.3) * Math.cos(y * 0.3) * 0.08
+      
+      // Flatten the city quadrant (NW) a bit for urban streets
+      if (x < -10 && y > 10) {
+        h *= 0.3;
+      }
       pos.setZ(i, h)
     }
     geo.computeVertexNormals()
     return geo
   }, [])
 
-  // Procedural canvas texture to create dirt patches and variable grass coloration
+  // Procedural satellite map ground textures mapping the 4 quadrants
   const terrainTexture = useMemo(() => {
     const canvas = document.createElement('canvas')
     canvas.width = 512
     canvas.height = 512
     const ctx = canvas.getContext('2d')
     
-    // Base grass color
+    // Default grass fill
     ctx.fillStyle = '#3f6212'
     ctx.fillRect(0, 0, 512, 512)
-    
-    // Draw dirt and dry grass patches
-    for (let i = 0; i < 300; i++) {
-      const x = Math.random() * 512
-      const y = Math.random() * 512
-      const r = 8 + Math.random() * 32
-      
-      // Alternate between soil/dirt and dry yellowish grass patches
-      ctx.fillStyle = Math.random() > 0.5 ? '#543e2b' : '#556b2f'
+
+    // NW Quadrant (City) - Top Left in Canvas coordinates: X (0-256), Y (0-256)
+    ctx.fillStyle = '#64748b' // concrete base
+    ctx.fillRect(0, 0, 256, 256)
+    // Draw city asphalt grid
+    ctx.fillStyle = '#334155'
+    for (let i = 0; i < 6; i++) {
+      ctx.fillRect(i * 45 + 10, 0, 6, 256)
+      ctx.fillRect(0, i * 45 + 10, 256, 6)
+    }
+
+    // NE Quadrant (Village Fields) - Top Right in Canvas: X (256-512), Y (0-256)
+    ctx.fillStyle = '#1e3a1e' // dark field grass
+    ctx.fillRect(256, 0, 256, 256)
+    ctx.fillStyle = '#166534' // crop rows
+    for (let i = 0; i < 10; i++) {
+      ctx.fillRect(270 + i * 22, 10, 10, 236)
+    }
+
+    // SW Quadrant (Desert Sand) - Bottom Left in Canvas: X (0-256), Y (256-512)
+    ctx.fillStyle = '#d97706' // warm desert sand
+    ctx.fillRect(0, 256, 256, 256)
+    // sand dunes details
+    ctx.fillStyle = '#b45309'
+    for (let i = 0; i < 15; i++) {
       ctx.beginPath()
-      ctx.arc(x, y, r, 0, Math.PI * 2)
+      ctx.arc(Math.random() * 256, 256 + Math.random() * 256, 6 + Math.random() * 12, 0, Math.PI * 2)
       ctx.fill()
     }
+
+    // SE Quadrant (Mountain Slate) - Bottom Right in Canvas: X (256-512), Y (256-512)
+    ctx.fillStyle = '#475569' // cool slate rock
+    ctx.fillRect(256, 256, 256, 256)
     
+    // Clear landing pad base circle at the absolute center
+    ctx.beginPath()
+    ctx.arc(256, 256, 20, 0, Math.PI * 2)
+    ctx.fillStyle = '#1e293b'
+    ctx.fill()
+
     const texture = new THREE.CanvasTexture(canvas)
-    texture.wrapS = THREE.RepeatWrapping
-    texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(30, 30) // Tile across terrain
     return texture
   }, [])
 
@@ -91,84 +163,6 @@ function Terrain() {
         metalness={0.01}
       />
     </mesh>
-  )
-}
-
-function CropField({ x, z, width, length, color1, color2, stripes }) {
-  const fieldGeo = useMemo(() => new THREE.PlaneGeometry(width, length), [width, length])
-  const uniforms = useMemo(() => ({
-    color1: { value: new THREE.Color(color1) },
-    color2: { value: new THREE.Color(color2) },
-    stripes: { value: stripes }
-  }), [color1, color2, stripes])
-
-  return (
-    <mesh geometry={fieldGeo} rotation={[-Math.PI / 2, 0, 0]} position={[x, -0.58, z]} receiveShadow>
-      <shaderMaterial
-        vertexShader={`
-          varying vec2 vUv;
-          void main() {
-            vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
-          }
-        `}
-        fragmentShader={`
-          varying vec2 vUv;
-          uniform vec3 color1;
-          uniform vec3 color2;
-          uniform float stripes;
-          void main() {
-            float stripe = step(0.5, fract(vUv.x * stripes));
-            vec3 finalColor = mix(color1, color2, stripe);
-            gl_FragColor = vec4(finalColor, 1.0);
-          }
-        `}
-        uniforms={uniforms}
-      />
-    </mesh>
-  )
-}
-
-function FarmFields() {
-  const fieldsData = useMemo(() => {
-    const list = []
-    const colors = [
-      { color1: '#14532d', color2: '#166534', stripes: 35.0 }, // Dark green crops
-      { color1: '#15803d', color2: '#22c55e', stripes: 25.0 }, // Light green crops
-      { color1: '#7c2d12', color2: '#9a3412', stripes: 15.0 }, // Soil/Tilled rows
-      { color1: '#854d0e', color2: '#a16207', stripes: 20.0 }  // Wheat/Golden rows
-    ]
-    
-    // Create an 8x8 grid of farm fields
-    for (let r = -4; r < 4; r++) {
-      for (let c = -4; c < 4; c++) {
-        // Skip the landing center point
-        if (r === 0 && c === 0) continue;
-        
-        const x = c * 160 + (Math.random() - 0.5) * 20
-        const z = r * 160 + (Math.random() - 0.5) * 20
-        const width = 120 + Math.random() * 20
-        const length = 120 + Math.random() * 20
-        const config = colors[Math.abs(r + c) % colors.length]
-        
-        list.push({
-          x,
-          z,
-          width,
-          length,
-          ...config
-        })
-      }
-    }
-    return list
-  }, [])
-
-  return (
-    <group>
-      {fieldsData.map((f, i) => (
-        <CropField key={i} {...f} />
-      ))}
-    </group>
   )
 }
 
@@ -212,17 +206,68 @@ function LandingPad() {
   )
 }
 
+function Building({ position, width, height, length }) {
+  return (
+    <group position={position}>
+      {/* Main skyscraper block */}
+      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
+        <boxGeometry args={[width, height, length]} />
+        <meshStandardMaterial color="#334155" roughness={0.7} metalness={0.2} />
+      </mesh>
+      {/* Windows overlay */}
+      <mesh position={[0, height / 2, length / 2 + 0.05]}>
+        <planeGeometry args={[width * 0.8, height * 0.9]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.4} emissive="#38bdf8" emissiveIntensity={0.15} />
+      </mesh>
+      <mesh position={[0, height / 2, -length / 2 - 0.05]} rotation={[0, Math.PI, 0]}>
+        <planeGeometry args={[width * 0.8, height * 0.9]} />
+        <meshStandardMaterial color="#0f172a" roughness={0.4} emissive="#38bdf8" emissiveIntensity={0.15} />
+      </mesh>
+    </group>
+  )
+}
+
+function Cactus({ position, scale }) {
+  return (
+    <group position={position} scale={scale}>
+      {/* Main tall cylinder */}
+      <mesh position={[0, 1, 0]} castShadow>
+        <cylinderGeometry args={[0.16, 0.16, 2, 8]} />
+        <meshStandardMaterial color="#166534" roughness={0.9} />
+      </mesh>
+      {/* Left arm */}
+      <mesh position={[-0.3, 1.2, 0]} rotation={[0, 0, Math.PI / 4]} castShadow>
+        <cylinderGeometry args={[0.1, 0.1, 0.8, 8]} />
+        <meshStandardMaterial color="#166534" roughness={0.9} />
+      </mesh>
+      <mesh position={[-0.6, 1.5, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.1, 0.6, 8]} />
+        <meshStandardMaterial color="#166534" roughness={0.9} />
+      </mesh>
+      {/* Right arm */}
+      <mesh position={[0.3, 0.9, 0]} rotation={[0, 0, -Math.PI / 4]} castShadow>
+        <cylinderGeometry args={[0.1, 0.1, 0.8, 8]} />
+        <meshStandardMaterial color="#166534" roughness={0.9} />
+      </mesh>
+      <mesh position={[0.6, 1.2, 0]} castShadow>
+        <cylinderGeometry args={[0.1, 0.1, 0.6, 8]} />
+        <meshStandardMaterial color="#166534" roughness={0.9} />
+      </mesh>
+    </group>
+  )
+}
+
 function Tree({ type, position, scale }) {
   return (
     <group position={position} scale={scale}>
-      {/* Trunk with slight taper */}
+      {/* Trunk with taper */}
       <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
         <cylinderGeometry args={[0.12, 0.22, 2.4, 8]} />
-        <meshStandardMaterial color={COLORS.bark} roughness={0.95} />
+        <meshStandardMaterial color="#5c2d12" roughness={0.95} />
       </mesh>
       
       {type === 'pine' ? (
-        // Layered Pine Spruce Tree
+        // Layered Pine Spruce tree
         <group position={[0, 2.2, 0]}>
           <mesh position={[0, 0.4, 0]} castShadow>
             <coneGeometry args={[1.5, 2.0, 7]} />
@@ -230,7 +275,7 @@ function Tree({ type, position, scale }) {
           </mesh>
           <mesh position={[0, 1.3, 0]} castShadow>
             <coneGeometry args={[1.1, 1.6, 7]} />
-            <meshStandardMaterial color={COLORS.pine} roughness={0.8} />
+            <meshStandardMaterial color="#14532d" roughness={0.8} />
           </mesh>
           <mesh position={[0, 2.1, 0]} castShadow>
             <coneGeometry args={[0.7, 1.2, 7]} />
@@ -238,23 +283,19 @@ function Tree({ type, position, scale }) {
           </mesh>
         </group>
       ) : (
-        // Organic Deciduous Tree using overlapping geodesic puffs
+        // Deciduous puff tree
         <group position={[0, 2.6, 0]}>
           <mesh position={[0, 0.5, 0]} castShadow>
             <dodecahedronGeometry args={[1.3, 1]} />
-            <meshStandardMaterial color={COLORS.leaves} roughness={0.8} />
+            <meshStandardMaterial color="#15803d" roughness={0.8} />
           </mesh>
           <mesh position={[-0.7, 0.2, 0.4]} castShadow>
             <dodecahedronGeometry args={[0.9, 1]} />
-            <meshStandardMaterial color="#15803d" roughness={0.8} />
+            <meshStandardMaterial color="#166534" roughness={0.8} />
           </mesh>
           <mesh position={[0.7, 0.3, -0.3]} castShadow>
             <dodecahedronGeometry args={[0.9, 1]} />
             <meshStandardMaterial color="#14532d" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 1.2, 0]} castShadow>
-            <dodecahedronGeometry args={[0.8, 1]} />
-            <meshStandardMaterial color="#16a34a" roughness={0.8} />
           </mesh>
         </group>
       )}
@@ -331,21 +372,34 @@ export default function Environment() {
       />
       
       <Terrain />
-      <FarmFields />
       <LandingPad />
       <MountainRange />
       
       <group>
-        {VEGETATION.map((v, i) => (
+        {/* Render Village Assets (NE) */}
+        {VILLAGE_TREES.map((v, i) => (
           <Tree key={i} {...v} />
         ))}
         <FarmComplex />
-        
-        {/* Scattered Rocks */}
-        {[...Array(50)].map((_, i) => (
-          <mesh key={i} position={[(i * 47) % 1000 - 500, -0.4, (i * 31) % 1000 - 500]} rotation={[Math.random(), Math.random(), 0]}>
-            <dodecahedronGeometry args={[1 + Math.random() * 1.5, 0]} />
-            <meshStandardMaterial color="#64748b" roughness={0.9} />
+
+        {/* Render Mountain Pine Trees (SE) */}
+        {PINE_TREES.map((p, i) => (
+          <Tree key={i} {...p} />
+        ))}
+
+        {/* Render City Skyscrapers (NW) */}
+        {SKYSCRAPERS.map((b, i) => (
+          <Building key={i} {...b} />
+        ))}
+
+        {/* Render Desert Cacti & Rocks (SW) */}
+        {CACTI.map((c, i) => (
+          <Cactus key={i} {...c} />
+        ))}
+        {DESERT_ROCKS.map((r, i) => (
+          <mesh key={i} position={r.position} scale={r.scale} rotation={r.rotation}>
+            <dodecahedronGeometry args={[1, 0]} />
+            <meshStandardMaterial color="#a16207" roughness={0.9} />
           </mesh>
         ))}
       </group>

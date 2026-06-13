@@ -25,7 +25,9 @@ const useTelemetryStore = create((set) => ({
     settings: { ...state.settings, ...newSettings } 
   })),
   showMap: false,
-  setShowMap: (showMap) => set({ showMap })
+  setShowMap: (showMap) => set({ showMap }),
+  cameraMode: 'normal',
+  setCameraMode: (cameraMode) => set({ cameraMode })
 }))
 
 export default useTelemetryStore

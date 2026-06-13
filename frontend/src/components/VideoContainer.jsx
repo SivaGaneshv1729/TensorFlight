@@ -1,12 +1,14 @@
 import React, { useState } from 'react'
+import useTelemetryStore from '../store/useTelemetryStore'
 
 export default function VideoContainer() {
-  const [mode, setMode] = useState('normal'); // 'normal' or 'vari'
+  const cameraMode = useTelemetryStore((state) => state.cameraMode)
+  const setCameraMode = useTelemetryStore((state) => state.setCameraMode)
   const [hasError, setHasError] = useState(false);
-  const streamUrl = `/api/video/stream?mode=${mode}`;
+  const streamUrl = `/api/video/stream?mode=${cameraMode}`;
 
   const handleModeChange = (newMode) => {
-    setMode(newMode);
+    setCameraMode(newMode);
     setHasError(false); // Reset error state on mode change
   };
 
@@ -47,13 +49,13 @@ export default function VideoContainer() {
       <div className="absolute bottom-10 left-1/2 -translate-x-1/2 z-30 flex gap-4 pointer-events-auto">
         <button 
           onClick={() => handleModeChange('normal')}
-          className={`px-4 py-1 text-[10px] font-bold tracking-widest uppercase border transition-all ${mode === 'normal' ? 'bg-white text-black border-white' : 'text-white/40 border-white/20 hover:border-white/60'}`}
+          className={`px-4 py-1 text-[10px] font-bold tracking-widest uppercase border transition-all ${cameraMode === 'normal' ? 'bg-white text-black border-white' : 'text-white/40 border-white/20 hover:border-white/60'}`}
         >
           Normal
         </button>
         <button 
           onClick={() => handleModeChange('vari')}
-          className={`px-4 py-1 text-[10px] font-bold tracking-widest uppercase border transition-all ${mode === 'vari' ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_10px_#39FF14]' : 'text-agri-neon/40 border-agri-neon/20 hover:border-agri-neon/60'}`}
+          className={`px-4 py-1 text-[10px] font-bold tracking-widest uppercase border transition-all ${cameraMode === 'vari' ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_10px_#39FF14]' : 'text-agri-neon/40 border-agri-neon/20 hover:border-agri-neon/60'}`}
         >
           VARI (Health)
         </button>

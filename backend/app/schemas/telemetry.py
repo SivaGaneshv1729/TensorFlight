@@ -21,12 +21,21 @@ class NavigationTarget(BaseModel):
     distance_to_wp_m: float
     coverage_efficiency_score: Optional[float] = 1.0
 
+class AIAnalysis(BaseModel):
+    weed_count: int = 0
+    pest_stressed_count: int = 0
+    collision_warning: bool = False
+    safe_flight_radius_m: float = 300.0
+    wind_speed_mps: float = 0.0
+    wind_dir_deg: float = 0.0
+
 class TelemetryData(BaseModel):
     timestamp: int
     is_connected: bool = False
     is_active: bool = False
     drone_state: DroneState
     navigation_target: NavigationTarget
+    ai_analysis: Optional[AIAnalysis] = None
 
 class DroneCommand(BaseModel):
     action: str
