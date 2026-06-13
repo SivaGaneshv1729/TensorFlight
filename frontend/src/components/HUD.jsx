@@ -46,6 +46,25 @@ export default function HUD() {
         </div>
       )}
 
+      {/* Center Reticle / Crosshair */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
+        <div className="relative w-16 h-16 flex items-center justify-center">
+          {/* Inner small dot */}
+          <div className="w-1.5 h-1.5 bg-agri-neon/80 rounded-full animate-ping" />
+          <div className="absolute w-1 h-1 bg-agri-neon rounded-full" />
+          
+          {/* Outer circle segments */}
+          <div className="absolute w-12 h-12 border border-agri-neon/30 rounded-full" />
+          <div className="absolute w-16 h-16 border border-dashed border-agri-neon/20 rounded-full" />
+
+          {/* Crosshair ticks */}
+          <div className="absolute w-4 h-[1px] bg-agri-neon/50 left-0" />
+          <div className="absolute w-4 h-[1px] bg-agri-neon/50 right-0" />
+          <div className="absolute w-[1px] h-4 bg-agri-neon/50 top-0" />
+          <div className="absolute w-[1px] h-4 bg-agri-neon/50 bottom-0" />
+        </div>
+      </div>
+
       {/* Top HUD Stats */}
       <div className="flex justify-between items-start">
         {/* Empty space for Left Monitoring Panel (DroneViews) */}

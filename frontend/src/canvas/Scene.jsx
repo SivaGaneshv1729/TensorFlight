@@ -1,6 +1,6 @@
 import React, { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { View, PerspectiveCamera } from '@react-three/drei'
+import { View, PerspectiveCamera, Line } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from './Environment'
@@ -47,11 +47,68 @@ function HUDOverlay() {
   )
 }
 
+function HolographicTargetLine() {
+  const targetWp = useTelemetryStore((state) => state.telemetry.navigation_target.next_waypoint_gps)
+  const distanceToWp = useTelemetryStore((state) => state.telemetry.navigation_target.distance_to_wp_m)
+  const isArmed = useTelemetryStore((state) => state.telemetry.is_active)
+  const gps = useTelemetryStore((state) => state.telemetry.drone_state.gps)
+  
+  const homeRef = useRef(null)
+
+  if (!isArmed || !targetWp || distanceToWp < 1.0) return null
+
+  const { latitude, longitude, altitude_relative_m } = gps
+  if (latitude === 0 && longitude === 0) return null
+
+  if (!homeRef.current) {
+    homeRef.current = { lat: latitude, lon: longitude }
+  }
+
+  // Calculate current drone position
+  const deltaLat = latitude - homeRef.current.lat
+  const deltaLon = longitude - homeRef.current.lon
+  const droneX = deltaLon * 111319 * Math.cos(latitude * Math.PI / 180)
+  const droneY = altitude_relative_m || 0
+  const droneZ = -deltaLat * 111319
+
+  // Calculate target position
+  const targetDeltaLat = targetWp.latitude - homeRef.current.lat
+  const targetDeltaLon = targetWp.longitude - homeRef.current.lon
+  const targetX = targetDeltaLon * 111319 * Math.cos(latitude * Math.PI / 180)
+  const targetY = targetWp.altitude_relative_m !== undefined ? targetWp.altitude_relative_m : 15.0
+  const targetZ = -targetDeltaLat * 111319
+
+  const points = [
+    [droneX, droneY, droneZ],
+    [targetX, targetY, targetZ]
+  ]
+
+  return (
+    <group>
+      {/* Holographic Laser Path */}
+      <Line 
+        points={points} 
+        color="#39FF14" 
+        lineWidth={3} 
+        transparent
+        opacity={0.8}
+      />
+      
+      {/* Target Marker Beacon */}
+      <mesh position={[targetX, targetY, targetZ]}>
+        <cylinderGeometry args={[0, 1.2, 3.5, 16]} />
+        <meshBasicMaterial color="#39FF14" wireframe transparent opacity={0.6} />
+      </mesh>
+    </group>
+  )
+}
+
 export default function Scene() {
   return (
     <View className="w-full h-full">
       <Environment />
       <HUDOverlay />
+      <HolographicTargetLine />
     </View>
   )
 }

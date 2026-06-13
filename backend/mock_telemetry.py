@@ -447,6 +447,13 @@ async def simulate_drone():
                             weeds_found = int(1 + math.cos(t * 0.1))
                             stress_found = 0
 
+                        # Calculate current distance to waypoint if active
+                        current_dist_to_wp = 0.0
+                        if target_wp:
+                            dist_lat_m = (target_wp['lat'] - lat) * 111319
+                            dist_lon_m = (target_wp['lon'] - lon) * 111319 * math.cos(math.radians(lat))
+                            current_dist_to_wp = math.sqrt(dist_lat_m**2 + dist_lon_m**2)
+
                         # Send telemetry JSON payload
                         payload = {
                             "timestamp": int(time.time() * 1000), 
@@ -457,7 +464,19 @@ async def simulate_drone():
                                 "orientation_deg": {"pitch": pitch, "roll": roll, "yaw_heading": heading},
                                 "battery_percentage": int(battery)
                             },
-                            "navigation_target": {"next_waypoint_gps": {"latitude": home_lat, "longitude": home_lon}, "distance_to_wp_m": 0, "coverage_efficiency_score": 1.0},
+                            "navigation_target": {
+                                "next_waypoint_gps": {
+                                    "latitude": target_wp['lat'], 
+                                    "longitude": target_wp['lon'],
+                                    "altitude_relative_m": target_wp.get('alt', 15.0)
+                                } if target_wp else {
+                                    "latitude": home_lat, 
+                                    "longitude": home_lon,
+                                    "altitude_relative_m": 0.0
+                                },
+                                "distance_to_wp_m": float(current_dist_to_wp),
+                                "coverage_efficiency_score": 1.0
+                            },
                             "ai_analysis": {
                                 "weed_count": weeds_found,
                                 "pest_stressed_count": stress_found,
