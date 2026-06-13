@@ -1,6 +1,16 @@
 import { useEffect, useRef } from 'react'
 import useTelemetryStore from './store/useTelemetryStore'
 
+let globalSocket = null;
+
+export function sendSocketMessage(message) {
+  if (globalSocket && globalSocket.readyState === WebSocket.OPEN) {
+    globalSocket.send(JSON.stringify(message));
+    return true;
+  }
+  return false;
+}
+
 export default function useWebSocket() {
   const setTelemetry = useTelemetryStore((state) => state.setTelemetry)
   const socketRef = useRef(null)
@@ -16,7 +26,8 @@ export default function useWebSocket() {
       
       const socket = new WebSocket(url)
       socketRef.current = socket
-
+      globalSocket = socket
+      
       socket.onopen = () => {
         console.log('✅ WebSocket Connected Successfully to:', url);
         reconnectCount.current = 0; // Reset count on successful connection
@@ -55,8 +66,12 @@ export default function useWebSocket() {
         if (socketRef.current.readyState === WebSocket.OPEN) {
           socketRef.current.close()
         }
+        if (globalSocket === socketRef.current) {
+          globalSocket = null
+        }
       }
       clearTimeout(timeoutId)
     }
   }, [setTelemetry])
 }
+

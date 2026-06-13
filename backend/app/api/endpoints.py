@@ -54,14 +54,20 @@ async def poll_commands():
     print(f"📤 Polled {len(commands)} commands")
     return {"commands": commands}
 
+from app.core.manager import sim_manager
+
 @router.post("/command")
 async def send_command(command: DroneCommand):
     print(f"📥 Received Command: {command.action} with params {command.params}")
     
     # Queue for mock_telemetry.py
     global command_queue
-    command_queue.append(command.model_dump())
+    cmd_dict = command.model_dump()
+    command_queue.append(cmd_dict)
     print(f"📝 Command queued. Queue size: {len(command_queue)}")
+    
+    # Forward to simulator WebSocket directly
+    await sim_manager.send_command(cmd_dict)
     
     # Forward to MAVLink (for real SITL if connected)
     mav_bridge.send_command(command.action, command.params)

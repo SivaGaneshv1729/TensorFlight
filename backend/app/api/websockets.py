@@ -1,8 +1,11 @@
 import asyncio
+import json
+import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.schemas.telemetry import TelemetryData
 # Assuming mav_bridge is accessible from a shared location, e.g., app.core
 from app.core.mavlink import mav_bridge
+from app.core.manager import sim_manager
 
 router = APIRouter()
 
@@ -78,6 +81,31 @@ async def telemetry_websocket(websocket: WebSocket):
     await broadcaster.connect(websocket)
     try:
         while True:
-            await websocket.receive_text()
+            data = await websocket.receive_text()
+            try:
+                cmd = json.loads(data)
+                if isinstance(cmd, dict) and "action" in cmd:
+                    await sim_manager.send_command(cmd)
+            except Exception:
+                pass
     except WebSocketDisconnect:
         await broadcaster.disconnect(websocket)
+
+@router.websocket("/ws/simulator")
+async def simulator_websocket(websocket: WebSocket):
+    await websocket.accept()
+    await sim_manager.connect(websocket)
+    try:
+        while True:
+            data_json = await websocket.receive_json()
+            try:
+                telemetry_data = TelemetryData(**data_json)
+                async with mav_bridge._lock:
+                    mav_bridge.latest_data = telemetry_data
+                    mav_bridge.latest_data.is_connected = True
+                    mav_bridge.last_heartbeat = time.time()
+            except Exception as e:
+                print(f"Error parsing simulator telemetry: {e}")
+    except WebSocketDisconnect:
+        await sim_manager.disconnect()
+
