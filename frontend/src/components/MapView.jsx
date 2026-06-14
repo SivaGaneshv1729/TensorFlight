@@ -103,7 +103,7 @@ export default function MapView({ onClose }) {
       return x - Math.floor(x);
     }
     const list = []
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 150; i++) {
       const randAngle = seedRandom(i, 1)
       const randDist = seedRandom(i, 2)
       const angle = randAngle * Math.PI * 0.5 + Math.PI
@@ -121,7 +121,7 @@ export default function MapView({ onClose }) {
       return x - Math.floor(x);
     }
     const list = []
-    for (let i = 0; i < 80; i++) {
+    for (let i = 0; i < 150; i++) {
       const randAngle = seedRandom(i, 4)
       const randDist = seedRandom(i, 5)
       const angle = randAngle * Math.PI * 0.5
@@ -139,7 +139,7 @@ export default function MapView({ onClose }) {
       return x - Math.floor(x);
     }
     const list = []
-    for (let i = 0; i < 12; i++) {
+    for (let i = 0; i < 20; i++) {
       const randAngle = seedRandom(i, 7)
       const randDist = seedRandom(i, 8)
       const angle = randAngle * Math.PI * 0.4
@@ -157,11 +157,11 @@ export default function MapView({ onClose }) {
       return x - Math.floor(x);
     }
     const list = []
-    for (let i = 0; i < 28; i++) {
+    for (let i = 0; i < 45; i++) {
       const randX = seedRandom(i, 1)
       const randZ = seedRandom(i, 2)
-      const x = -40 - (i % 5) * 80 + (randX - 0.5) * 15
-      const z = -40 - Math.floor(i / 5) * 80 + (randZ - 0.5) * 15
+      const x = -40 - (i % 6) * 65 + (randX - 0.5) * 12
+      const z = -40 - Math.floor(i / 6) * 65 + (randZ - 0.5) * 12
       const width = 14 + randZ * 8
       list.push({
         lat: homeLat + (-z * latPerMeter),

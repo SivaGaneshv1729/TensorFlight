@@ -14,7 +14,7 @@ function seedRandom(i, seed) {
 }
 
 const VILLAGE_TREES = []
-for (let i = 0; i < 80; i++) {
+for (let i = 0; i < 150; i++) {
   const randAngle = seedRandom(i, 1)
   const randDist = seedRandom(i, 2)
   const angle = randAngle * Math.PI * 0.5 + Math.PI // Top-Right NE quadrant
@@ -27,7 +27,7 @@ for (let i = 0; i < 80; i++) {
 }
 
 const PINE_TREES = []
-for (let i = 0; i < 80; i++) {
+for (let i = 0; i < 150; i++) {
   const randAngle = seedRandom(i, 4)
   const randDist = seedRandom(i, 5)
   const angle = randAngle * Math.PI * 0.5 // Bottom-Right SE quadrant
@@ -40,7 +40,7 @@ for (let i = 0; i < 80; i++) {
 }
 
 const MOUNTAINS = []
-for (let i = 0; i < 12; i++) {
+for (let i = 0; i < 20; i++) {
   const randAngle = seedRandom(i, 7)
   const randDist = seedRandom(i, 8)
   const angle = randAngle * Math.PI * 0.4 // Far bottom right SE quadrant
@@ -53,12 +53,12 @@ for (let i = 0; i < 12; i++) {
 }
 
 const SKYSCRAPERS = []
-for (let i = 0; i < 28; i++) {
+for (let i = 0; i < 45; i++) {
   // Top-Left NW quadrant
   const randX = seedRandom(i, 1)
   const randZ = seedRandom(i, 2)
-  const x = -40 - (i % 5) * 80 + (randX - 0.5) * 15
-  const z = -40 - Math.floor(i / 5) * 80 + (randZ - 0.5) * 15
+  const x = -40 - (i % 6) * 65 + (randX - 0.5) * 12
+  const z = -40 - Math.floor(i / 6) * 65 + (randZ - 0.5) * 12
   const height = 20 + randX * 55
   const width = 14 + randZ * 8
   SKYSCRAPERS.push({
@@ -70,7 +70,7 @@ for (let i = 0; i < 28; i++) {
 }
 
 const CACTI = []
-for (let i = 0; i < 35; i++) {
+for (let i = 0; i < 60; i++) {
   // Bottom-Left SW quadrant
   const x = -30 - seedRandom(i, 13) * 500
   const z = 30 + seedRandom(i, 14) * 500
@@ -81,7 +81,7 @@ for (let i = 0; i < 35; i++) {
 }
 
 const DESERT_ROCKS = []
-for (let i = 0; i < 35; i++) {
+for (let i = 0; i < 60; i++) {
   const x = -30 - seedRandom(i, 16) * 500
   const z = 30 + seedRandom(i, 17) * 500
   DESERT_ROCKS.push({
@@ -92,17 +92,7 @@ for (let i = 0; i < 35; i++) {
 }
 
 export function getTerrainHeight(x, z) {
-  // z is rotated 3D Z coordinate, which corresponds to -y of PlaneGeometry before rotation
-  let h = Math.sin(x * 0.003) * Math.cos(z * 0.003) * 6.0 + 
-          Math.sin(x * 0.015) * Math.cos(z * 0.015) * 1.5 +
-          Math.sin(x * 0.08) * Math.cos(z * 0.08) * 0.35 + 
-          Math.sin(x * 0.3) * Math.cos(z * 0.3) * 0.08;
-  
-  // Flatten the city quadrant (NW)
-  if (x < -10 && z < -10) {
-    h *= 0.3;
-  }
-  return h;
+  return 0.0;
 }
 
 function Terrain() {
@@ -142,13 +132,38 @@ function Terrain() {
       ctx.fillRect(0, i * 45 + 10, 256, 6)
     }
 
-    // NE Quadrant (Village Fields) - Top Right in Canvas: X (256-512), Y (0-256)
-    ctx.fillStyle = '#1e3a1e' // dark field grass
+    // NE Quadrant (Village Fields Patchwork) - Top Right: X (256-512), Y (0-256)
+    ctx.fillStyle = '#2d3a1a' // Base field background
     ctx.fillRect(256, 0, 256, 256)
-    ctx.fillStyle = '#166534' // crop rows
-    for (let i = 0; i < 10; i++) {
-      ctx.fillRect(270 + i * 22, 10, 10, 236)
-    }
+
+    // Plot A: Fallow Soil (Reddish-brown)
+    ctx.fillStyle = '#78350f'
+    ctx.fillRect(270, 15, 95, 80)
+    ctx.fillStyle = '#451a03' // dirt lines
+    for(let r = 20; r < 90; r += 12) ctx.fillRect(270, r, 95, 2)
+
+    // Plot B: Golden Wheat (Yellow-orange crop rows)
+    ctx.fillStyle = '#b45309'
+    ctx.fillRect(380, 15, 120, 80)
+    ctx.fillStyle = '#d97706' // wheat rows
+    for(let c = 385; c < 495; c += 12) ctx.fillRect(c, 15, 3, 80)
+
+    // Plot C: Fresh Green Row Crops
+    ctx.fillStyle = '#14532d'
+    ctx.fillRect(270, 115, 95, 125)
+    ctx.fillStyle = '#15803d' // bright green crop rows
+    for(let c = 275; c < 360; c += 10) ctx.fillRect(c, 115, 4, 125)
+
+    // Plot D: Alfalfa / Pasture
+    ctx.fillStyle = '#166534'
+    ctx.fillRect(380, 115, 120, 125)
+    ctx.fillStyle = '#3f6212' // grid pattern
+    for(let r = 120; r < 235; r += 15) ctx.fillRect(380, r, 120, 3)
+
+    // Dirt access tracks separating fields
+    ctx.fillStyle = '#451a03'
+    ctx.fillRect(370, 0, 8, 256) // Vertical access track
+    ctx.fillRect(256, 103, 256, 6) // Horizontal access track
 
     // SW Quadrant (Desert Sand) - Bottom Left in Canvas: X (0-256), Y (256-512)
     ctx.fillStyle = '#d97706' // warm desert sand

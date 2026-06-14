@@ -11,7 +11,7 @@ def seed_random(i, seed):
 # Mapped assets matching Environment.jsx for Collision Avoidance
 VEGETATION = []
 # 1. Village trees (deciduous)
-for i in range(80):
+for i in range(150):
     randAngle = seed_random(i, 1)
     randDist = seed_random(i, 2)
     angle = randAngle * math.pi * 0.5 + math.pi
@@ -21,7 +21,7 @@ for i in range(80):
     VEGETATION.append((x, z))
 
 # 2. Pine trees
-for i in range(80):
+for i in range(150):
     randAngle = seed_random(i, 4)
     randDist = seed_random(i, 5)
     angle = randAngle * math.pi * 0.5
@@ -31,11 +31,11 @@ for i in range(80):
     VEGETATION.append((x, z))
 
 SKYSCRAPERS = []
-for i in range(28):
+for i in range(45):
     randX = seed_random(i, 1)
     randZ = seed_random(i, 2)
-    x = -40 - (i % 5) * 80 + (randX - 0.5) * 15.0
-    z = -40 - (i // 5) * 80 + (randZ - 0.5) * 15.0
+    x = -40 - (i % 6) * 65.0 + (randX - 0.5) * 12.0
+    z = -40 - (i // 6) * 65.0 + (randZ - 0.5) * 12.0
     height = 20.0 + randX * 55.0
     width = 14.0 + randZ * 8.0
     SKYSCRAPERS.append({
@@ -46,14 +46,7 @@ for i in range(28):
     })
 
 def get_terrain_height(x, z):
-    # Matches getTerrainHeight in Environment.jsx
-    h = math.sin(x * 0.003) * math.cos(z * 0.003) * 6.0 + \
-        math.sin(x * 0.015) * math.cos(z * 0.015) * 1.5 + \
-        math.sin(x * 0.08) * math.cos(z * 0.08) * 0.35 + \
-        math.sin(x * 0.3) * math.cos(z * 0.3) * 0.08
-    if x < -10.0 and z < -10.0:
-        h *= 0.3
-    return h
+    return 0.0
 
 async def simulate_drone():
     url = "ws://127.0.0.1:8000/ws/simulator"
