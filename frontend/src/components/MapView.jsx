@@ -313,7 +313,7 @@ export default function MapView({ onClose }) {
   const etaSeconds = distance / 11.0;
 
   return (
-    <div className="absolute left-64 right-28 top-8 bottom-8 bg-black/95 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 animate-in zoom-in-95 duration-200 flex flex-col pointer-events-auto">
+    <div className="absolute left-64 right-[400px] top-8 bottom-8 bg-black/95 backdrop-blur-2xl border border-white/10 rounded-2xl overflow-hidden shadow-2xl z-50 animate-in zoom-in-95 duration-200 flex flex-col pointer-events-auto">
       {/* Header */}
       <div className="flex justify-between items-center p-4 bg-black/60 border-b border-white/10 z-[1000]">
         <div className="flex items-center gap-2">
@@ -371,11 +371,116 @@ export default function MapView({ onClose }) {
           <MapController center={dronePos} forceCenter={forceCenter} onCentered={() => setForceCenter(false)} />
           <MapClickHandler onMapClick={handleMapClick} />
 
-          {/* 4 Quadrants Visual Overlays */}
-          <Rectangle bounds={cityBounds} color="#64748b" weight={1.5} fillOpacity={0.15} dashArray="5,5" />
-          <Rectangle bounds={villageBounds} color="#166534" weight={1.5} fillOpacity={0.15} dashArray="5,5" />
-          <Rectangle bounds={desertBounds} color="#d97706" weight={1.5} fillOpacity={0.15} dashArray="5,5" />
-          <Rectangle bounds={mountainBounds} color="#475569" weight={1.5} fillOpacity={0.15} dashArray="5,5" />
+          {/* 4 Quadrants Visual Overlays Matching Environment.jsx */}
+          
+          {/* NW City Quadrant: Dark Concrete Base & Street Grid */}
+          <Rectangle bounds={cityBounds} color="#334155" fillColor="#1e1e1e" fillOpacity={0.85} weight={1} />
+          {/* City Grid Roads */}
+          {Array.from({ length: 6 }).map((_, i) => {
+            const roadMeters = (i * 45 + 13 - 256) / 256 * 600; // relative meters
+            return (
+              <React.Fragment key={`city-road-${i}`}>
+                {/* Vertical Streets */}
+                <Rectangle 
+                  bounds={[
+                    [homeLat, homeLon + (roadMeters - 3) * lonPerMeter],
+                    [homeLat + 600 * latPerMeter, homeLon + (roadMeters + 3) * lonPerMeter]
+                  ]}
+                  color="#334155"
+                  fillColor="#334155"
+                  fillOpacity={0.9}
+                  weight={0.5}
+                />
+                {/* Horizontal Streets */}
+                <Rectangle 
+                  bounds={[
+                    [homeLat + (-roadMeters - 3) * latPerMeter, homeLon - 600 * lonPerMeter],
+                    [homeLat + (-roadMeters + 3) * latPerMeter, homeLon]
+                  ]}
+                  color="#334155"
+                  fillColor="#334155"
+                  fillOpacity={0.9}
+                  weight={0.5}
+                />
+              </React.Fragment>
+            )
+          })}
+
+          {/* NE Village Fields Quadrant: Base Field background & 4 Crops Plots */}
+          <Rectangle bounds={villageBounds} color="#2d3a1a" fillColor="#2d3a1a" fillOpacity={0.8} weight={1} />
+          
+          {/* Plot A: Fallow Soil */}
+          <Rectangle 
+            bounds={[
+              [homeLat + 377.34 * latPerMeter, homeLon + 32.81 * lonPerMeter], 
+              [homeLat + 564.84 * latPerMeter, homeLon + 255.46 * lonPerMeter]
+            ]}
+            color="#451a03"
+            fillColor="#78350f"
+            fillOpacity={0.95}
+            weight={1.5}
+          />
+          {/* Plot B: Golden Wheat */}
+          <Rectangle 
+            bounds={[
+              [homeLat + 377.34 * latPerMeter, homeLon + 290.625 * lonPerMeter], 
+              [homeLat + 564.84 * latPerMeter, homeLon + 571.875 * lonPerMeter]
+            ]}
+            color="#d97706"
+            fillColor="#b45309"
+            fillOpacity={0.95}
+            weight={1.5}
+          />
+          {/* Plot C: Fresh Green Row Crops */}
+          <Rectangle 
+            bounds={[
+              [homeLat + 37.5 * latPerMeter, homeLon + 32.81 * lonPerMeter], 
+              [homeLat + 330.47 * latPerMeter, homeLon + 255.46 * lonPerMeter]
+            ]}
+            color="#15803d"
+            fillColor="#14532d"
+            fillOpacity={0.95}
+            weight={1.5}
+          />
+          {/* Plot D: Alfalfa / Pasture */}
+          <Rectangle 
+            bounds={[
+              [homeLat + 37.5 * latPerMeter, homeLon + 290.625 * lonPerMeter], 
+              [homeLat + 330.47 * latPerMeter, homeLon + 571.875 * lonPerMeter]
+            ]}
+            color="#3f6212"
+            fillColor="#166534"
+            fillOpacity={0.95}
+            weight={1.5}
+          />
+
+          {/* Dirt Access Tracks separating fields */}
+          <Rectangle 
+            bounds={[
+              [homeLat, homeLon + (278.9 - 4) * lonPerMeter],
+              [homeLat + 600 * latPerMeter, homeLon + (278.9 + 4) * lonPerMeter]
+            ]}
+            color="#451a03"
+            fillColor="#451a03"
+            fillOpacity={1.0}
+            weight={0.5}
+          />
+          <Rectangle 
+            bounds={[
+              [homeLat + (353.9 - 3) * latPerMeter, homeLon],
+              [homeLat + (353.9 + 3) * latPerMeter, homeLon + 600 * lonPerMeter]
+            ]}
+            color="#451a03"
+            fillColor="#451a03"
+            fillOpacity={1.0}
+            weight={0.5}
+          />
+
+          {/* SW Desert Sand Quadrant */}
+          <Rectangle bounds={desertBounds} color="#b45309" fillColor="#d97706" fillOpacity={0.8} weight={1} />
+
+          {/* SE Slate Mountain Quadrant */}
+          <Rectangle bounds={mountainBounds} color="#334155" fillColor="#475569" fillOpacity={0.8} weight={1} />
 
           {/* Render Deciduous Trees (NE) */}
           {villageTrees.map((tree, idx) => (
