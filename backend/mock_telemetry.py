@@ -45,6 +45,16 @@ for i in range(28):
         "width": width
     })
 
+def get_terrain_height(x, z):
+    # Matches getTerrainHeight in Environment.jsx
+    h = math.sin(x * 0.003) * math.cos(z * 0.003) * 6.0 + \
+        math.sin(x * 0.015) * math.cos(z * 0.015) * 1.5 + \
+        math.sin(x * 0.08) * math.cos(z * 0.08) * 0.35 + \
+        math.sin(x * 0.3) * math.cos(z * 0.3) * 0.08
+    if x < -10.0 and z < -10.0:
+        h *= 0.3
+    return h
+
 async def simulate_drone():
     url = "ws://127.0.0.1:8000/ws/simulator"
 
@@ -379,12 +389,17 @@ async def simulate_drone():
                             rad = math.radians(heading)
                             next_lat = lat + (v_forward * math.cos(rad) - v_right * math.sin(rad))
                             next_lon = lon + (v_forward * math.sin(rad) + v_right * math.cos(rad))
-                            next_alt = alt + v_alt
-                            if next_alt < 0: next_alt = 0
 
                             # Convert tentative next coordinates to 3D relative positions
                             next_x_3d = (next_lon - home_lon) / lonPerMeter
                             next_z_3d = -(next_lat - home_lat) / latPerMeter
+
+                            # Get terrain height at target coordinates
+                            terrain_h = get_terrain_height(next_x_3d, next_z_3d)
+                            
+                            next_alt = alt + v_alt
+                            if next_alt < terrain_h:
+                                next_alt = terrain_h
 
                             # Check for hard collisions
                             collides = False
@@ -423,10 +438,15 @@ async def simulate_drone():
                                 heading = (heading + v_yaw) % 360
                         else:
                             vel_forward = vel_right = vel_yaw = 0.0
-                            if alt > 0: 
+                            current_x = (lon - home_lon) / lonPerMeter
+                            current_z = -(lat - home_lat) / latPerMeter
+                            terrain_h = get_terrain_height(current_x, current_z)
+                            if alt > terrain_h: 
                                 vel_alt += (-0.1 - vel_alt) * 0.2
                                 alt += vel_alt
-                            if alt < 0: alt = 0
+                            if alt < terrain_h: 
+                                alt = terrain_h
+                                vel_alt = 0.0
 
                         # Visual Tilt Interpolation
                         pitch += (target_pitch - pitch) * 0.15

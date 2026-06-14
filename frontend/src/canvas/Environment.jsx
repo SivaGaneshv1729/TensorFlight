@@ -91,6 +91,20 @@ for (let i = 0; i < 35; i++) {
   })
 }
 
+export function getTerrainHeight(x, z) {
+  // z is rotated 3D Z coordinate, which corresponds to -y of PlaneGeometry before rotation
+  let h = Math.sin(x * 0.003) * Math.cos(z * 0.003) * 6.0 + 
+          Math.sin(x * 0.015) * Math.cos(z * 0.015) * 1.5 +
+          Math.sin(x * 0.08) * Math.cos(z * 0.08) * 0.35 + 
+          Math.sin(x * 0.3) * Math.cos(z * 0.3) * 0.08;
+  
+  // Flatten the city quadrant (NW)
+  if (x < -10 && z < -10) {
+    h *= 0.3;
+  }
+  return h;
+}
+
 function Terrain() {
   const terrainGeo = useMemo(() => {
     const geo = new THREE.PlaneGeometry(4000, 4000, 80, 80)
@@ -98,16 +112,9 @@ function Terrain() {
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i)
       const y = pos.getY(i)
-      // Large rolling hills + medium ridges + high-frequency ground bumps
-      let h = Math.sin(x * 0.003) * Math.cos(y * 0.003) * 6.0 + 
-              Math.sin(x * 0.015) * Math.cos(y * 0.015) * 1.5 +
-              Math.sin(x * 0.08) * Math.cos(y * 0.08) * 0.35 + 
-              Math.sin(x * 0.3) * Math.cos(y * 0.3) * 0.08
       
-      // Flatten the city quadrant (NW) a bit for urban streets
-      if (x < -10 && y > 10) {
-        h *= 0.3;
-      }
+      // y corresponds to -z_3d in the rotated coordinate system
+      const h = getTerrainHeight(x, -y)
       pos.setZ(i, h)
     }
     geo.computeVertexNormals()
