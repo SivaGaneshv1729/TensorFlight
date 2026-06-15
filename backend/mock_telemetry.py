@@ -3,6 +3,11 @@ import math
 import time
 import json
 import websockets
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 def seed_random(i, seed):
     val = math.sin(i * 12.9898 + seed * 78.233) * 43758.5453123
@@ -126,6 +131,14 @@ async def simulate_drone():
                                 mission_waypoints = []
                                 target_wp = None
                                 print("✅ Drone ARMED")
+                            elif action == "TAKEOFF":
+                                if is_armed:
+                                    target_wp = {"lat": lat, "lon": lon, "alt": cmd.get("params", {}).get("altitude", 10.0)}
+                                    is_rtl = False
+                                    is_landing = False
+                                    print(f"🚀 TAKEOFF sequence initiated to {target_wp['alt']}m")
+                                else:
+                                    print("⚠️ Cannot TAKEOFF: Drone is not ARMED!")
                             elif action == "DISARM":
                                 if alt < 0.5:
                                     is_armed = False

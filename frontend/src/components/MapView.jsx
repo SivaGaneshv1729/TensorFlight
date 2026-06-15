@@ -28,7 +28,7 @@ function MapController({ center, forceCenter, onCentered }) {
       if (!hasCentered) setHasCentered(true);
       if (forceCenter) onCentered();
     }
-  }, [center, map, hasCentered, forceCenter, onCentered]);
+  }, [center[0], center[1], map, hasCentered, forceCenter, onCentered]);
 
   return null;
 }

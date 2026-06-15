@@ -13,13 +13,13 @@ export default function VideoContainer() {
   };
 
   return (
-    <div className="w-full h-full bg-zinc-900 flex items-center justify-center relative overflow-hidden">
+    <div className="w-full h-full bg-blue-900 flex items-center justify-center relative overflow-hidden">
       {/* Real Video Stream Feed */}
       {!hasError ? (
         <img 
           src={streamUrl} 
           alt="Live Drone Feed" 
-          className="w-full h-full object-cover grayscale-[20%] contrast-125"
+          className="w-full h-full object-cover grayscale-[20%] contrast-125 mix-blend-screen"
           onError={() => setHasError(true)}
         />
       ) : (

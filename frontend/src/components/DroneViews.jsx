@@ -68,7 +68,7 @@ function Viewport({ title, type, orientation, gps }) {
         {title}
       </div>
       <View className="w-full h-full">
-        <Environment />
+        <Environment simplified={true} />
         <FPVCamera type={type} orientation={orientation} gps={gps} />
       </View>
     </div>

@@ -391,7 +391,18 @@ function FarmComplex() {
   )
 }
 
-export default function Environment() {
+export default function Environment({ simplified = false }) {
+  if (simplified) {
+    return (
+      <>
+        <color attach="background" args={['#bae6fd']} />
+        <ambientLight intensity={1.8} />
+        <Terrain />
+        <LandingPad />
+      </>
+    )
+  }
+
   return (
     <>
       <color attach="background" args={['#bae6fd']} />
