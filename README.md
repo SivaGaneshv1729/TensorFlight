@@ -4,6 +4,7 @@ AgriHUD-AI is a high-performance, web-based Ground Control Station (GCS) and Hea
 
 ## 🚀 Key Features
 
+- **High-Fidelity Glass Cockpit**: A professional-grade, zero-gap UI featuring a Primary Flight Display (PFD) with realistic attitude indicators, rolling tapes, and a structured Flight Management System (FMS).
 - **Single-Canvas 3D Engine**: Highly optimized WebGL architecture using `@react-three/fiber` for rendering multiple synchronized FPV viewports (Front, Rear, Ground) at 60+ FPS without duplicate memory overhead.
 - **Realistic Simulated Environment**: Procedurally generated terrain, mountain ranges, and deterministic vegetation (200+ trees, farm complexes) for immersive flight simulation and obstacle awareness.
 - **Tactical Radar & Mission Planning**: Interactive 2D Map (via Leaflet) styled as a tactical radar. It mathematically projects 3D simulated obstacles onto GPS coordinates, allowing users to point-and-click to set autonomous `GOTO_WAYPOINT` navigation paths.
