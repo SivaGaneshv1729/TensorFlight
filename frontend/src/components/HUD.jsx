@@ -3,269 +3,196 @@ import { AlertTriangle, ShieldAlert, ShieldCheck, Eye, Target, Wind, Orbit } fro
 import useTelemetryStore from '../store/useTelemetryStore'
 
 export function StatsConsole() {
-  const altitude = useTelemetryStore((state) => state.telemetry.drone_state.gps.altitude_relative_m) || 0
-  const battery = useTelemetryStore((state) => state.telemetry.drone_state.battery_percentage) || 0
-  const orientation = useTelemetryStore((state) => state.telemetry.drone_state.orientation_deg) || { pitch: 0, roll: 0, yaw_heading: 0 }
+  const telemetry = useTelemetryStore((state) => state.telemetry)
+  const altitude = telemetry?.drone_state?.gps?.altitude_relative_m ?? 0
+  const battery = telemetry?.drone_state?.battery_percentage ?? 0
+  const orientation = telemetry?.drone_state?.orientation_deg ?? { pitch: 0, roll: 0, yaw_heading: 0 }
   const activeCommands = useTelemetryStore((state) => state.activeCommands) || []
+  const isArmed = telemetry?.is_active ?? false
+
+  const pitch = orientation.pitch
+  const roll = orientation.roll
+  const heading = orientation.yaw_heading
 
   return (
-    <div className="flex gap-12 items-center h-full px-12 justify-center">
-      {/* Section 1: Telemetry Monitoring */}
-      <div className="flex flex-col gap-1 w-56 font-mono text-[10px] text-gray-400">
-        <div className="text-agri-gold font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-agri-gold animate-pulse shadow-[0_0_5px_#fbbf24]" /> Flight Log
+    <div className="flex h-full w-full items-stretch p-0 gap-0 select-none bg-[#0B0E14] font-mono">
+      
+      {/* 1. AIRSPEED TAPE (Left) */}
+      <div className="w-28 flex flex-col items-center bg-[#07090D] border-r border-agri-neon/20">
+        <span className="py-2 text-[9px] text-agri-neon font-black uppercase tracking-widest border-b border-agri-neon/10 w-full text-center">Velocity</span>
+        <div className="flex-1 w-full relative overflow-hidden">
+           <div className="absolute right-2 top-0 bottom-0 w-8 flex flex-col justify-around py-4 opacity-30">
+              {[30, 25, 20, 15, 10, 5, 0].map(v => (
+                <div key={v} className="flex items-center justify-end gap-2">
+                  <span className="text-[9px] font-black">{v}</span>
+                  <div className="w-2 h-[1px] bg-agri-neon" />
+                </div>
+              ))}
+           </div>
+           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-12 flex items-center z-10">
+              <div className="w-full h-full bg-agri-neon/20 border-y border-agri-neon flex items-center justify-center shadow-[0_0_15px_rgba(0,229,255,0.2)]">
+                 <span className="text-2xl font-black text-white italic tracking-tighter">{(Math.abs(pitch) * 0.8).toFixed(1)}</span>
+              </div>
+           </div>
         </div>
-        <div className="flex justify-between border-b border-white/5 pb-1">
-          <span>ALTITUDE</span>
-          <span className="text-white font-bold">{altitude.toFixed(1)}m</span>
-        </div>
-        <div className="flex justify-between border-b border-white/5 pb-1">
-          <span>AIR SPEED</span>
-          <span className="text-white font-bold">
-            {(Math.sqrt(Math.pow(orientation.pitch, 2) + Math.pow(orientation.roll, 2)) * 0.8).toFixed(1)} m/s
-          </span>
-        </div>
-        <div className="flex justify-between border-b border-white/5 pb-1">
-          <span>CLIMB RATE</span>
-          <span className={`font-bold ${activeCommands.includes('ALT_UP') ? 'text-agri-neon' : activeCommands.includes('ALT_DOWN') ? 'text-red-400' : 'text-white'}`}>
-            {activeCommands.includes('ALT_UP') ? '+2.4' : activeCommands.includes('ALT_DOWN') ? '-2.4' : '0.0'} m/s
-          </span>
-        </div>
-        <div className="flex justify-between">
-          <span>SIGNAL</span>
-          <span className="text-agri-neon font-bold">100% / 8ms</span>
+        <div className="p-2 bg-cyan-950/20 w-full text-center border-t border-agri-neon/10">
+          <span className="text-[10px] text-agri-neon font-black">M/S_AIR</span>
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="w-[1px] h-32 bg-white/10" />
+      {/* 2. MAIN ATTITUDE INDICATOR (Center) */}
+      <div className="flex-1 flex flex-col relative border-r border-agri-neon/20">
+        
+        {/* Top Compass Tape */}
+        <div className="h-10 bg-black/40 border-b border-agri-neon/20 relative overflow-hidden">
+           <div 
+             className="absolute top-0 h-full flex items-center gap-12 transition-transform duration-200"
+             style={{ transform: `translateX(${-(heading % 360) * 2}px)`, left: '50%' }}
+           >
+              {[...Array(37)].map((_, i) => (
+                <div key={i*10} className="flex flex-col items-center min-w-[20px]">
+                   <span className="text-[10px] font-black text-white/80">{(i*10) % 360}</span>
+                   <div className="h-2 w-[1px] bg-agri-neon" />
+                </div>
+              ))}
+           </div>
+           <div className="absolute top-0 left-1/2 -translate-x-1/2 w-4 h-full border-x border-agri-neon z-10 flex flex-col justify-end pb-1">
+              <div className="w-0 h-0 border-l-[4px] border-r-[4px] border-b-[6px] border-l-transparent border-r-transparent border-b-agri-neon mx-auto" />
+           </div>
+        </div>
 
-      {/* Section 2: Artificial Horizon & Battery */}
-      <div className="flex flex-col items-center w-80">
-        {/* Miniature Attitude Indicator */}
-        <div className="relative w-64 h-24 border border-white/20 rounded-lg bg-zinc-950/80 overflow-hidden flex items-center justify-center shadow-inner">
+        {/* AI Display */}
+        <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
           <div 
-            className="absolute inset-0 bg-blue-950/35 border-t border-agri-neon/50 transition-transform duration-150"
+            className="absolute w-[400%] h-[400%] transition-transform duration-100 ease-out flex flex-col"
             style={{
-              transform: `translateY(${orientation.pitch * 1.2}px) rotate(${orientation.roll}deg)`,
+              transform: `translateY(${pitch * 4}px) rotate(${-roll}deg)`,
               transformOrigin: 'center'
             }}
-          />
-          {/* Static reference lines */}
-          <div className="w-12 h-[1px] bg-red-500/80 z-10 absolute -translate-x-12" />
-          <div className="w-12 h-[1px] bg-red-500/80 z-10 absolute translate-x-12" />
-          <div className="w-2 h-2 border border-red-500 rounded-full z-10 absolute" />
-          
-          <span className="absolute bottom-2 left-3 text-[8px] font-mono text-gray-500 uppercase tracking-widest">Horizon</span>
-          <div className="absolute top-2 right-3 text-[10px] font-bold text-white/40 flex flex-col items-end">
-             <span>P: {orientation.pitch.toFixed(1)}°</span>
-             <span>R: {orientation.roll.toFixed(1)}°</span>
+          >
+            <div className="flex-1 bg-gradient-to-b from-sky-600/30 to-blue-500/20" />
+            <div className="h-[2px] bg-white shadow-[0_0_20px_white]" />
+            <div className="flex-1 bg-gradient-to-b from-amber-900/30 to-[#1a110a]" />
           </div>
-        </div>
-        {/* Battery status bar */}
-        <div className="w-full mt-4 px-2">
-          <div className="flex justify-between text-[9px] font-mono text-gray-400 mb-1.5 uppercase tracking-widest">
-            <span className="flex items-center gap-1.5"><Orbit size={10} /> Core Power Grid</span>
-            <span className={battery <= 20 ? 'text-red-500 animate-pulse font-bold' : 'text-agri-neon font-bold'}>{battery}%</span>
+
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-12 pointer-events-none opacity-60">
+             {[20, 10, 0, -10, -20].map(p => (
+               <div key={p} className="flex items-center gap-24">
+                  <div className="flex items-center">
+                    <span className="text-[10px] font-black text-white/60 mr-2">{Math.abs(p)}</span>
+                    <div className="w-16 h-[1px] bg-white/40" />
+                  </div>
+                  <div className="flex items-center">
+                    <div className="w-16 h-[1px] bg-white/40" />
+                    <span className="text-[10px] font-black text-white/60 ml-2">{Math.abs(p)}</span>
+                  </div>
+               </div>
+             ))}
           </div>
-          <div className="w-full h-2 bg-white/5 rounded-full overflow-hidden border border-white/10">
-            <div 
-              className={`h-full transition-all duration-500 ${battery <= 20 ? 'bg-red-500' : 'bg-gradient-to-r from-agri-gold to-agri-neon'}`}
-              style={{ width: `${battery}%` }}
-            />
+
+          <div className="relative z-10 flex items-center justify-center">
+             <div className="w-48 h-1 bg-yellow-500 rounded-full shadow-[0_0_15px_rgba(234,179,8,0.5)] flex items-center justify-between px-20">
+                <div className="w-6 h-6 border-b-4 border-r-4 border-yellow-500 -rotate-45" />
+                <div className="w-6 h-6 border-b-4 border-l-4 border-yellow-500 rotate-45" />
+             </div>
+             <div className="absolute w-4 h-4 bg-yellow-500 rotate-45 border-2 border-black" />
           </div>
         </div>
       </div>
 
-      {/* Divider */}
-      <div className="w-[1px] h-32 bg-white/10" />
-
-      {/* Section 3: Keyboard Visualizer */}
-      <div className="flex flex-col gap-2 w-56 font-mono text-[10px] text-gray-400">
-        <div className="text-agri-neon font-bold uppercase tracking-wider mb-2 flex items-center gap-2">
-          <Orbit className="animate-spin" style={{ animationDuration: '8s' }} size={12} /> Input Feedback
-        </div>
-        <div className="grid grid-cols-4 gap-1.5 mb-2">
-          {['W','A','S','D'].map((k, i) => {
-            const cmd = ['PITCH_FORWARD', 'ROLL_LEFT', 'PITCH_BACK', 'ROLL_RIGHT'][i];
-            const active = activeCommands.includes(cmd);
-            return (
-              <div key={k} className={`aspect-square flex items-center justify-center rounded-lg border text-[10px] font-bold transition-all duration-150 ${active ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_15px_rgba(57,255,20,0.4)] scale-105' : 'bg-white/5 border-white/10 text-white/20'}`}>
-                {k}
+      {/* 3. ALTITUDE TAPE (Right) */}
+      <div className="w-28 flex flex-col items-center bg-[#07090D] border-r border-agri-neon/20">
+        <span className="py-2 text-[9px] text-agri-neon font-black uppercase tracking-widest border-b border-agri-neon/10 w-full text-center">Altitude</span>
+        <div className="flex-1 w-full relative overflow-hidden">
+           <div className="absolute left-2 top-0 bottom-0 w-8 flex flex-col justify-around py-4 opacity-30">
+              {[100, 80, 60, 40, 20, 0].map(v => (
+                <div key={v} className="flex items-center justify-start gap-2">
+                  <div className="w-2 h-[1px] bg-agri-neon" />
+                  <span className="text-[9px] font-black">{v}</span>
+                </div>
+              ))}
+           </div>
+           <div className="absolute inset-x-0 top-1/2 -translate-y-1/2 h-16 flex items-center z-10">
+              <div className="w-full h-full bg-agri-neon/20 border-y border-agri-neon flex flex-col items-center justify-center shadow-[0_0_15px_rgba(0,229,255,0.2)]">
+                 <span className="text-2xl font-black text-white italic leading-none">{altitude.toFixed(1)}</span>
+                 <span className="text-[8px] font-black text-agri-neon mt-1 uppercase">Meters_MSL</span>
               </div>
-            )
-          })}
+           </div>
         </div>
-        <div className="flex gap-2">
-          <div className={`flex-1 py-1.5 rounded-lg border text-[8px] font-bold text-center transition-all ${activeCommands.includes('ALT_UP') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_10px_rgba(57,255,20,0.3)]' : 'bg-white/5 border-white/10 text-white/20'}`}>SPACE / ▲</div>
-          <div className={`flex-1 py-1.5 rounded-lg border text-[8px] font-bold text-center transition-all ${activeCommands.includes('ALT_DOWN') ? 'bg-agri-neon text-black border-agri-neon shadow-[0_0_10px_rgba(57,255,20,0.3)]' : 'bg-white/5 border-white/10 text-white/20'}`}>SHIFT / ▼</div>
-        </div>
-        <div className="flex gap-2">
-          <div className={`flex-1 py-1.5 rounded-lg border text-[8px] font-bold text-center transition-all ${activeCommands.includes('YAW_LEFT') ? 'bg-agri-neon text-black border-agri-neon' : 'bg-white/5 border-white/10 text-white/20'}`}>Q / ◄</div>
-          <div className={`flex-1 py-1.5 rounded-lg border text-[8px] font-bold text-center transition-all ${activeCommands.includes('YAW_RIGHT') ? 'bg-agri-neon text-black border-agri-neon' : 'bg-white/5 border-white/10 text-white/20'}`}>E / ►</div>
-        </div>
+      </div>
+
+      {/* 4. SYSTEMS INTEGRATION (Far Right) */}
+      <div className="w-64 flex flex-col gap-0">
+         <div className="p-4 bg-agri-neon/5 border-b border-agri-neon/20">
+            <span className="text-[9px] text-agri-neon uppercase font-black tracking-widest block mb-2">Energy_Management</span>
+            <div className="flex justify-between items-end mb-1">
+               <span className="text-[14px] font-black text-white italic">{battery}%</span>
+               <span className="text-[8px] text-gray-500 font-bold uppercase">Main_Lithium_Pack</span>
+            </div>
+            <div className="w-full h-2 bg-black border border-white/10 rounded-sm overflow-hidden">
+               <div className={`h-full transition-all duration-700 ${battery > 20 ? 'bg-agri-neon' : 'bg-red-600 animate-pulse'}`} style={{ width: `${battery}%` }} />
+            </div>
+         </div>
+
+         <div className="grid grid-cols-2 flex-1">
+            <div className="p-4 border-r border-b border-agri-neon/10 flex flex-col justify-center">
+               <span className="text-[8px] text-gray-500 uppercase font-black mb-1">Eng_Status</span>
+               <span className={`text-[11px] font-black tracking-tighter ${isArmed ? 'text-amber-500 underline' : 'text-agri-neon/40'}`}>{isArmed ? 'PROP_ENGAGED' : 'SAFE_PASSIVE'}</span>
+            </div>
+            <div className="p-4 border-b border-agri-neon/10 flex flex-col justify-center bg-black/20">
+               <span className="text-[8px] text-gray-500 uppercase font-black mb-1">Nav_System</span>
+               <span className={`text-[11px] font-black tracking-tighter text-agri-neon`}>GPS_3D_LOCK</span>
+            </div>
+            <div className="p-4 border-r border-agri-neon/10 flex flex-col justify-center bg-black/20">
+               <span className="text-[8px] text-gray-500 uppercase font-black mb-1">Data_Link</span>
+               <span className="text-[11px] font-black tracking-tighter text-agri-neon">ENCRYPTED_OK</span>
+            </div>
+            <div className="p-4 border-agri-neon/10 flex flex-col justify-center">
+               <span className="text-[8px] text-gray-500 uppercase font-black mb-1">Processor</span>
+               <span className="text-[11px] font-black tracking-tighter text-agri-neon italic">SYSTEM_READY</span>
+            </div>
+         </div>
       </div>
     </div>
   )
 }
 
 export default function HUD() {
-  const altitude = useTelemetryStore((state) => state.telemetry.drone_state.gps.altitude_relative_m) || 0
-  const battery = useTelemetryStore((state) => state.telemetry.drone_state.battery_percentage) || 0
-  const lat = useTelemetryStore((state) => state.telemetry.drone_state.gps.latitude) || 0
-  const lon = useTelemetryStore((state) => state.telemetry.drone_state.gps.longitude) || 0
   const isConnected = useTelemetryStore((state) => state.telemetry.is_connected)
   const isArmed = useTelemetryStore((state) => state.telemetry.is_active)
+  const lat = useTelemetryStore((state) => state.telemetry.drone_state.gps.latitude) || 0
+  const lon = useTelemetryStore((state) => state.telemetry.drone_state.gps.longitude) || 0
   
-  const cameraMode = useTelemetryStore((state) => state.cameraMode)
-  const setCameraMode = useTelemetryStore((state) => state.setCameraMode)
-
-  const aiAnalysis = useTelemetryStore((state) => state.telemetry.ai_analysis) || {
-    weed_count: 0,
-    pest_stressed_count: 0,
-    collision_warning: false,
-    safe_flight_radius_m: 300.0,
-    wind_speed_mps: 0.0,
-    wind_dir_deg: 0.0
-  }
-
   return (
-    <div className="p-8 flex flex-col justify-between h-full relative">
-      {/* Collision Warning Banner */}
-      {aiAnalysis.collision_warning && (
-        <div className="absolute top-10 left-1/2 -translate-x-1/2 bg-red-600/90 text-white border border-red-500 px-8 py-3 rounded-lg backdrop-blur-md flex items-center gap-3 animate-bounce shadow-[0_0_20px_rgba(239,68,68,0.5)] z-40 pointer-events-auto">
-          <AlertTriangle size={20} className="animate-pulse" />
-          <div className="flex flex-col">
-            <span className="font-bold text-sm tracking-[0.15em] uppercase">Collision Imminent</span>
-            <span className="text-[10px] font-mono text-red-200">Auto-braking engaged against physical obstacles</span>
-          </div>
-        </div>
-      )}
-
-      {/* RTL Low Battery Alert Banner */}
-      {battery <= 20 && isArmed && (
-        <div className="absolute top-24 left-1/2 -translate-x-1/2 bg-amber-600/90 text-white border border-amber-500 px-8 py-3 rounded-lg backdrop-blur-md flex items-center gap-3 animate-pulse shadow-[0_0_20px_rgba(245,158,11,0.5)] z-40 pointer-events-auto">
-          <AlertTriangle size={20} className="animate-pulse" />
-          <div className="flex flex-col">
-            <span className="font-bold text-sm tracking-[0.15em] uppercase">Low Battery / RTL Threshold</span>
-            <span className="text-[10px] font-mono text-amber-200">RTL Envelope crossed. Opposing wind vector compensation active.</span>
-          </div>
-        </div>
-      )}
-
-      {/* Center Reticle / Crosshair */}
-      <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-10">
-        <div className="relative w-16 h-16 flex items-center justify-center">
-          <div className="w-1.5 h-1.5 bg-agri-neon/80 rounded-full animate-ping" />
-          <div className="absolute w-1 h-1 bg-agri-neon rounded-full" />
-          <div className="absolute w-12 h-12 border border-agri-neon/30 rounded-full" />
-          <div className="absolute w-16 h-16 border border-dashed border-agri-neon/20 rounded-full" />
+    <div className="p-0 flex flex-col justify-between h-full relative font-mono text-white pointer-events-none">
+      
+      {/* Center Sight */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <div className="relative w-40 h-40 flex items-center justify-center opacity-40">
+          <div className="absolute w-20 h-[1px] bg-agri-neon left-0" />
+          <div className="absolute w-20 h-[1px] bg-agri-neon right-0" />
+          <div className="absolute h-20 w-[1px] bg-agri-neon top-0" />
+          <div className="absolute h-20 w-[1px] bg-agri-neon bottom-0" />
+          <div className="w-4 h-4 border border-agri-neon rotate-45" />
         </div>
       </div>
 
-      {/* Top HUD Status - Center only, as sides are sidebars now */}
-      <div className="flex justify-center items-start w-full">
-        <div className="flex flex-col items-center gap-2">
-          <div className="bg-black/40 px-6 py-2 backdrop-blur-sm border-b-2 border-agri-neon rounded-b-xl flex gap-6">
-            <div className="flex items-center gap-2">
-               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-agri-neon animate-pulse shadow-[0_0_5px_#39FF14]' : 'bg-red-500 shadow-[0_0_5px_#ef4444]'}`} />
-               <h2 className="text-agri-neon text-[10px] font-bold uppercase tracking-[0.2em]">
-                 LINK: {isConnected ? 'CONNECTED' : 'OFFLINE'}
-               </h2>
+      {/* AR Status Blocks */}
+      <div className="flex justify-center pt-12">
+         <div className="flex border border-agri-neon/40 bg-black/60 backdrop-blur-md p-1">
+            <div className={`px-4 py-1.5 border-r border-agri-neon/20 flex items-center gap-3 ${isConnected ? 'text-agri-neon' : 'text-red-500'}`}>
+               <div className={`w-2 h-2 rounded-full ${isConnected ? 'bg-agri-neon animate-pulse shadow-[0_0_8px_#39ff14]' : 'bg-red-500'}`} />
+               <span className="text-[10px] font-black uppercase tracking-widest">Uplink_{isConnected ? 'Ready' : 'Lost'}</span>
             </div>
-            <div className="w-[1px] h-4 bg-white/10" />
-            <div className="flex items-center gap-2">
-               <div className={`w-2 h-2 rounded-full ${isArmed ? 'bg-orange-500 animate-pulse shadow-[0_0_5px_#f97316]' : 'bg-gray-500'}`} />
-               <h2 className={`text-[10px] font-bold uppercase tracking-[0.2em] ${isArmed ? 'text-orange-500' : 'text-gray-500'}`}>
-                 MOTORS: {isArmed ? 'ARMED' : 'SAFE'}
-               </h2>
+            <div className={`px-4 py-1.5 border-r border-agri-neon/20 flex items-center gap-3 ${isArmed ? 'text-amber-500' : 'text-gray-500'}`}>
+               <div className={`w-2 h-2 rounded-full ${isArmed ? 'bg-amber-500 animate-pulse' : 'bg-gray-600'}`} />
+               <span className="text-[10px] font-black uppercase tracking-widest">Engines_{isArmed ? 'Active' : 'Standby'}</span>
             </div>
-          </div>
-          
-          <div className="flex gap-4 mt-2">
-            <div className="bg-black/40 px-4 py-1 rounded-full border border-white/5 backdrop-blur-sm flex gap-3 text-[10px] font-mono">
-              <span className="text-gray-400 uppercase tracking-tighter">GPS COORDS:</span>
-              <span className="text-agri-gold font-bold">{lat.toFixed(6)}, {lon.toFixed(6)}</span>
+            <div className="px-4 py-1.5 flex items-center gap-3 text-white/80">
+               <span className="text-[9px] font-black text-gray-500">COORD_REF:</span>
+               <span className="text-[10px] font-bold tracking-tighter italic">{lat.toFixed(6)} | {lon.toFixed(6)}</span>
             </div>
-          </div>
-        </div>
-      </div>
-
-      {/* AI Diagnostics Side Panel */}
-      <div className="absolute top-4 left-4 w-52 bg-black/60 backdrop-blur-xl border border-white/10 rounded-xl p-4 flex flex-col gap-4 pointer-events-auto text-xs select-none shadow-2xl">
-        <div className="flex items-center gap-2 border-b border-white/10 pb-2 font-bold uppercase text-[10px] text-agri-neon tracking-widest">
-          <Orbit className="animate-spin" style={{ animationDuration: '6s' }} size={14} />
-          <span>AI Insight</span>
-        </div>
-
-        {/* AI Targets/Counts */}
-        <div className="flex flex-col gap-2">
-          <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/5">
-            <span className="text-gray-400 font-mono text-[9px] uppercase tracking-tighter">Weeds Identified</span>
-            <span className="font-mono text-agri-neon font-bold flex items-center gap-1.5">
-              <Target size={12} className="animate-pulse" />
-              {aiAnalysis.weed_count}
-            </span>
-          </div>
-          <div className="flex justify-between items-center bg-white/5 p-2 rounded-lg border border-white/5">
-            <span className="text-gray-400 font-mono text-[9px] uppercase tracking-tighter">Biomass Stress</span>
-            <span className={`font-mono font-bold flex items-center gap-1.5 ${aiAnalysis.pest_stressed_count > 0 ? 'text-orange-500' : 'text-gray-400'}`}>
-              <ShieldAlert size={12} />
-              {aiAnalysis.pest_stressed_count}
-            </span>
-          </div>
-        </div>
-
-        {/* Collision Avoidance Status */}
-        <div className="flex flex-col gap-1.5">
-          <div className="text-gray-500 font-mono text-[8px] uppercase tracking-[0.2em] px-1">Collision Shield</div>
-          <div className={`p-2 rounded-lg border font-mono text-[10px] font-bold flex items-center justify-between transition-colors ${aiAnalysis.collision_warning ? 'bg-red-950/40 border-red-500/50 text-red-500 animate-pulse' : 'bg-green-950/20 border-green-500/20 text-agri-neon'}`}>
-            <span className="text-[8px] uppercase">Active Sensor</span>
-            <span className="flex items-center gap-1.5">
-              {aiAnalysis.collision_warning ? 'BRAKING' : 'SAFE'}
-            </span>
-          </div>
-        </div>
-
-        {/* Wind Vector */}
-        <div className="flex flex-col gap-1.5">
-          <div className="text-gray-500 font-mono text-[8px] uppercase tracking-[0.2em] px-1">Atmospheric</div>
-          <div className="bg-white/5 p-2 rounded-lg border border-white/5 flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="font-mono text-[11px] text-white font-bold">{aiAnalysis.wind_speed_mps.toFixed(1)} <span className="text-[8px] text-gray-500">m/s</span></span>
-              <span className="font-mono text-[8px] text-gray-500">{aiAnalysis.wind_dir_deg.toFixed(0)}° Bearing</span>
-            </div>
-            <div className="relative w-8 h-8 rounded-full border border-white/10 flex items-center justify-center bg-black/40">
-              <Wind size={12} className="text-blue-400 animate-pulse" />
-              <div 
-                className="absolute w-0.5 h-3.5 bg-agri-gold origin-bottom bottom-1/2 transition-transform duration-500 rounded-full shadow-[0_0_5px_#fbbf24]"
-                style={{ transform: `rotate(${aiAnalysis.wind_dir_deg}deg)` }}
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Camera mode toggle */}
-        <div className="flex flex-col gap-2 mt-2 border-t border-white/10 pt-4">
-          <div className="text-gray-500 font-mono text-[8px] uppercase tracking-[0.2em] flex items-center justify-between px-1">
-            <span>Spectral Filter</span>
-            <Eye size={11} className={cameraMode === 'vari' ? 'text-agri-neon animate-pulse' : 'text-gray-400'} />
-          </div>
-          <div className="flex gap-2 bg-black/60 p-1 rounded-xl border border-white/10">
-            <button
-              onClick={() => setCameraMode('normal')}
-              className={`flex-1 text-[9px] font-bold uppercase py-2 rounded-lg transition-all text-center ${cameraMode === 'normal' ? 'bg-white text-black shadow-lg scale-105' : 'text-white/40 hover:text-white/80'}`}
-            >
-              RGB
-            </button>
-            <button
-              onClick={() => setCameraMode('vari')}
-              className={`flex-1 text-[9px] font-bold uppercase py-2 rounded-lg transition-all text-center ${cameraMode === 'vari' ? 'bg-agri-neon text-black shadow-[0_0_12px_rgba(57,255,20,0.5)] scale-105' : 'text-agri-neon/40 hover:text-agri-neon/80'}`}
-            >
-              VARI
-            </button>
-          </div>
-        </div>
+         </div>
       </div>
     </div>
   )
