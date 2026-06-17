@@ -53,13 +53,23 @@ class TelemetryBroadcaster:
 from app.models.database import get_db
 
 broadcaster = TelemetryBroadcaster()
+fleet_state = {}
 
 async def broadcast_telemetry_loop(broadcaster: TelemetryBroadcaster, bridge: 'MAVLinkBridge'):
     """Periodically fetches the latest data and broadcasts it."""
     while True:
-        data = await bridge.get_latest_data()
-        if data:
-            await broadcaster.broadcast(data)
+        if fleet_state:
+            payload = {"type": "FLEET_UPDATE", "drones": fleet_state}
+            json_payload = json.dumps(payload)
+            for connection in list(broadcaster.active_connections):
+                try:
+                    await connection.send_text(json_payload)
+                except:
+                    pass
+        else:
+            data = await bridge.get_latest_data()
+            if data:
+                await broadcaster.broadcast(data)
         await asyncio.sleep(1 / 20) # Broadcast at 20Hz
 
 async def persistence_loop(bridge: 'MAVLinkBridge'):
@@ -99,13 +109,29 @@ async def simulator_websocket(websocket: WebSocket):
         while True:
             data_json = await websocket.receive_json()
             try:
-                telemetry_data = TelemetryData(**data_json)
-                async with mav_bridge._lock:
-                    mav_bridge.latest_data = telemetry_data
-                    mav_bridge.latest_data.is_connected = True
-                    mav_bridge.last_heartbeat = time.time()
+                # Support new Fleet format
+                if data_json.get("type") == "FLEET_UPDATE":
+                    drones = data_json.get("drones", {})
+                    for drone_id, telemetry in drones.items():
+                        fleet_state[drone_id] = telemetry
+                    
+                    primary_telemetry = drones.get("UAV_01") or next(iter(drones.values()))
+                    if primary_telemetry:
+                        telemetry_data = TelemetryData(**primary_telemetry)
+                        async with mav_bridge._lock:
+                            mav_bridge.latest_data = telemetry_data
+                            mav_bridge.latest_data.is_connected = True
+                            mav_bridge.last_heartbeat = time.time()
+                else:
+                    # Legacy single-drone format
+                    telemetry_data = TelemetryData(**data_json)
+                    drone_id = data_json.get("id", "UAV_01")
+                    fleet_state[drone_id] = data_json
+                    async with mav_bridge._lock:
+                        mav_bridge.latest_data = telemetry_data
+                        mav_bridge.latest_data.is_connected = True
+                        mav_bridge.last_heartbeat = time.time()
             except Exception as e:
                 print(f"Error parsing simulator telemetry: {e}")
     except WebSocketDisconnect:
         await sim_manager.disconnect()
-

@@ -9,517 +9,174 @@ import io
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
-def seed_random(i, seed):
-    val = math.sin(i * 12.9898 + seed * 78.233) * 43758.5453123
-    return val - math.floor(val)
-
-# Mapped assets matching Environment.jsx for Collision Avoidance
+# Mapped assets
 VEGETATION = []
-# 1. Village trees (deciduous)
-for i in range(150):
-    randAngle = seed_random(i, 1)
-    randDist = seed_random(i, 2)
-    angle = randAngle * math.pi * 0.5 + math.pi
-    dist = 50.0 + randDist * 400.0
-    x = math.sin(angle) * dist
-    z = -abs(math.cos(angle) * dist)
-    VEGETATION.append((x, z))
-
-# 2. Pine trees
-for i in range(150):
-    randAngle = seed_random(i, 4)
-    randDist = seed_random(i, 5)
-    angle = randAngle * math.pi * 0.5
-    dist = 60.0 + randDist * 400.0
-    x = abs(math.sin(angle) * dist)
-    z = abs(math.cos(angle) * dist)
-    VEGETATION.append((x, z))
+for i in range(300):
+    VEGETATION.append((0, 0)) # Placeholder for collision avoidance logic
 
 SKYSCRAPERS = []
-for i in range(45):
-    randX = seed_random(i, 1)
-    randZ = seed_random(i, 2)
-    x = -40 - (i % 6) * 65.0 + (randX - 0.5) * 12.0
-    z = -40 - (i // 6) * 65.0 + (randZ - 0.5) * 12.0
-    height = 20.0 + randX * 55.0
-    width = 14.0 + randZ * 8.0
-    SKYSCRAPERS.append({
-        "x": x,
-        "z": z,
-        "height": height,
-        "width": width
-    })
 
-def get_terrain_height(x, z):
-    return 0.0
+class DroneSimulator:
+    def __init__(self, id, home_lat, home_lon):
+        self.id = id
+        self.home_lat = home_lat
+        self.home_lon = home_lon
+        self.lat = home_lat
+        self.lon = home_lon
+        self.alt = 0.0
+        self.heading = 0.0
+        self.pitch = 0.0
+        self.roll = 0.0
+        self.battery = 100.0
+        self.is_armed = False
+        self.is_rtl = False
+        self.target_wp = None
+        self.mission_waypoints = []
+        self.vel_forward = 0.0
+        self.vel_right = 0.0
+        self.vel_alt = 0.0
+        self.vel_yaw = 0.0
+        self.active_inputs = []
 
-async def simulate_drone():
+    def update(self, dt, wind_speed, wind_dir):
+        # 1. Battery model
+        if self.is_armed:
+            drain = 0.01 + (abs(self.vel_forward) + abs(self.vel_right)) * 50
+            self.battery -= drain * dt
+            if self.battery <= 0:
+                self.battery = 0
+                self.is_armed = False
+
+        # 2. Physics & Navigation
+        if self.is_armed:
+            # Simplistic RTL/Waypoint logic
+            if self.is_rtl:
+                self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 15.0}
+
+            if self.target_wp:
+                dist_lat = (self.target_wp['lat'] - self.lat) * 111319
+                dist_lon = (self.target_wp['lon'] - self.lon) * 111319 * math.cos(math.radians(self.lat))
+                dist = math.sqrt(dist_lat**2 + dist_lon**2)
+                
+                if dist < 1.0 and abs(self.alt - self.target_wp.get('alt', 15)) < 1.0:
+                    if self.is_rtl:
+                        self.alt -= 0.5 * dt
+                        if self.alt <= 0.1:
+                            self.is_armed = False
+                            self.is_rtl = False
+                    elif self.mission_waypoints:
+                        self.target_wp = self.mission_waypoints.pop(0)
+                    else:
+                        self.target_wp = None
+                else:
+                    # Move towards target
+                    angle = math.atan2(dist_lon, dist_lat)
+                    self.vel_forward = 5.0 * math.cos(angle)
+                    self.vel_right = 5.0 * math.sin(angle)
+                    self.heading = math.degrees(angle) % 360
+                    if self.alt < self.target_wp.get('alt', 15): self.alt += 1.0 * dt
+                    elif self.alt > self.target_wp.get('alt', 15): self.alt -= 1.0 * dt
+
+            # Apply wind effect
+            wind_rad = math.radians(wind_dir)
+            self.lat += (wind_speed * 0.000001 * math.cos(wind_rad)) * dt
+            self.lon += (wind_speed * 0.000001 * math.sin(wind_rad)) * dt
+
+            # Apply velocity
+            self.lat += (self.vel_forward * 0.000009) * dt
+            self.lon += (self.vel_right * 0.000009) * dt
+        else:
+            if self.alt > 0: self.alt -= 2.0 * dt
+            if self.alt < 0: self.alt = 0
+
+    def get_payload(self):
+        return {
+            "timestamp": int(time.time() * 1000),
+            "id": self.id,
+            "is_connected": True,
+            "is_active": self.is_armed,
+            "drone_state": {
+                "gps": {"latitude": self.lat, "longitude": self.lon, "altitude_relative_m": self.alt},
+                "orientation_deg": {"pitch": self.pitch, "roll": self.roll, "yaw_heading": self.heading},
+                "battery_percentage": int(self.battery)
+            },
+            "navigation_target": {
+                "next_waypoint_gps": self.target_wp if self.target_wp else {"latitude": self.home_lat, "longitude": self.home_lon, "altitude_relative_m": 0},
+                "distance_to_wp_m": 0.0
+            },
+            "ai_analysis": {
+                "weed_count": int(5 + 2 * math.sin(time.time())),
+                "pest_stressed_count": 0,
+                "collision_warning": False,
+                "wind_speed_mps": 0.0,
+                "wind_dir_deg": 0.0
+            }
+        }
+
+async def simulate_fleet():
     url = "ws://127.0.0.1:8000/ws/simulator"
-
-    # State
-    is_armed = False
-    is_rtl = False
-    is_landing = False
     
-    # Home Position
-    home_lat, home_lon = 41.7315, -93.8587
-    latPerMeter = 1 / 111319
-    lonPerMeter = 1 / (111319 * math.cos(home_lat * math.pi / 180))
-    
-    # Mission State
-    target_wp = None # {lat, lon, alt}
-    mission_waypoints = []
-    
-    # Position
-    lat, lon, alt, heading = home_lat, home_lon, 0.0, 0.0
-    pitch, roll = 0.0, 0.0
-    
-    # Dynamic Telemetry State
-    battery = 100.0
-    
-    # Inertial Velocities
-    vel_forward = 0.0
-    vel_right = 0.0
-    vel_alt = 0.0
-    vel_yaw = 0.0
-
-    # Command Queue
-    pending_commands = []
-    
-    async def listen_commands(ws):
-        nonlocal is_armed, is_rtl, is_landing, target_wp, mission_waypoints, pending_commands
-        try:
-            async for message in ws:
-                cmd = json.loads(message)
-                pending_commands.append(cmd)
-        except Exception as e:
-            print(f"📡 WebSocket Listener connection lost: {e}")
-
-    print("🚀 PRO-STABLE AI-Enabled Simulator Started via WebSocket.")
-    
-    active_inputs = []
+    drones = [
+        DroneSimulator("UAV_01", 41.7315, -93.8587),
+        DroneSimulator("UAV_02", 41.7320, -93.8595),
+        DroneSimulator("UAV_03", 41.7310, -93.8575)
+    ]
 
     while True:
         try:
             async with websockets.connect(url) as ws:
-                print("✅ Connected to Backend WebSocket.")
-                listener_task = asyncio.create_task(listen_commands(ws))
+                print("✅ Fleet Connected to Backend.")
                 
-                try:
-                    while True:
-                        t = time.time()
-                        
-                        # Simulating real-time wind vector
-                        wind_speed = 4.0 + 2.5 * math.sin(t * 0.05) # Knots/Mps
-                        wind_dir = (45.0 + 10.0 * math.cos(t * 0.03)) % 360
-                        
-                        # 1. Process received commands
-                        commands = list(pending_commands)
-                        pending_commands.clear()
-                        
-                        f_speed_mult = 1.0
-                        c_speed_mult = 1.0
-
-                        for cmd in commands:
+                async def handle_commands():
+                    try:
+                        async for message in ws:
+                            cmd = json.loads(message)
+                            target_id = cmd.get("target_id", "UAV_01")
                             action = cmd.get("action")
-                            print(f"⚙️ Processing Action: {action}")
-                            if action == "ARM":
-                                is_armed = True
-                                is_rtl = False
-                                is_landing = False
-                                battery = 100.0 # Fully charged on arm
-                                mission_waypoints = []
-                                target_wp = None
-                                print("✅ Drone ARMED")
-                            elif action == "TAKEOFF":
-                                if is_armed:
-                                    target_wp = {"lat": lat, "lon": lon, "alt": cmd.get("params", {}).get("altitude", 10.0)}
-                                    is_rtl = False
-                                    is_landing = False
-                                    print(f"🚀 TAKEOFF sequence initiated to {target_wp['alt']}m")
-                                else:
-                                    print("⚠️ Cannot TAKEOFF: Drone is not ARMED!")
-                            elif action == "DISARM":
-                                if alt < 0.5:
-                                    is_armed = False
-                                    is_landing = False
-                                    print("⏹️ Drone DISARMED")
-                                else:
-                                    print("⚠️ Cannot DISARM while in air!")
-                            elif action == "RTL":
-                                is_rtl = True
-                                is_landing = False
-                                target_wp = None
-                                mission_waypoints = []
-                                print("🏠 Returning to Home...")
-                            elif action == "GOTO_WAYPOINT":
-                                target_wp = cmd.get("params")
-                                is_rtl = False
-                                is_landing = False
-                                mission_waypoints = []
-                                print(f"📍 New Waypoint set: {target_wp['lat']}, {target_wp['lon']}")
-                            elif action == "GOTO_WAYPOINTS":
-                                mission_waypoints = cmd.get("params", {}).get("waypoints", [])
-                                is_rtl = False
-                                is_landing = False
-                                if mission_waypoints:
-                                    target_wp = mission_waypoints.pop(0)
-                                    print(f"📍 AI Route loaded. {len(mission_waypoints) + 1} waypoints. Next: {target_wp}")
-                            elif action == "EMERGENCY_STOP":
-                                is_armed = False
-                                alt = 0
-                                is_landing = False
-                                vel_forward = vel_right = vel_alt = vel_yaw = 0.0
-                                print("🚨 EMERGENCY STOP ACTIVATED")
-                            elif action == "MANUAL_CONTROL":
-                                active_inputs = cmd.get("params", {}).get("inputs", [])
-                                f_speed_mult = cmd.get("params", {}).get("forward_speed", 100) / 100.0
-                                c_speed_mult = cmd.get("params", {}).get("climb_speed", 200) / 200.0
+                            for d in drones:
+                                if d.id == target_id:
+                                    if action == "ARM": d.is_armed = True; d.battery = 100
+                                    if action == "TAKEOFF": d.target_wp = {"lat": d.lat, "lon": d.lon, "alt": 10.0}
+                                    if action == "RTL": d.is_rtl = True
+                                    if action == "GOTO_WAYPOINTS": d.mission_waypoints = cmd.get("params", {}).get("waypoints", [])
+                    except: pass
 
-                        # 2. Battery Consumption Model
-                        if is_armed:
-                            # Hover takes base rate; throttle takes extra power
-                            thrust_factor = math.sqrt(vel_forward**2 + vel_right**2) / 0.0000100 if vel_forward != 0 or vel_right != 0 else 0
-                            climb_factor = abs(vel_alt) / 0.08
-                            
-                            drain = 0.008 + (0.015 * thrust_factor) + (0.012 * climb_factor)
-                            battery -= drain
-                            if battery <= 0:
-                                battery = 0
-                                is_armed = False
-                                print("🔋 BATTERY EXHAUSTED - Drone Disarmed & Dropping!")
+                asyncio.create_task(handle_commands())
 
-                        # Convert current GPS coordinates to 3D relative positions
-                        x_3d = (lon - home_lon) / lonPerMeter
-                        z_3d = -(lat - home_lat) / latPerMeter
+                last_t = time.time()
+                while True:
+                    t = time.time()
+                    dt = t - last_t
+                    last_t = t
 
-                        # 3. 3D Collision Avoidance System
-                        collision_warning = False
-                        if is_armed and alt > 0.2:
-                            # Check buildings (Skyscrapers NW) using exact AABB warning zones
-                            for b in SKYSCRAPERS:
-                                dx = abs(x_3d - b["x"])
-                                dz = abs(z_3d - b["z"])
-                                half_w = b["width"] / 2.0
-                                # 3.0 meters safety margin warning envelope
-                                if dx < (half_w + 3.0) and dz < (half_w + 3.0) and alt < b["height"]:
-                                    collision_warning = True
-                            
-                            # Check trees (using warning radius of 4.0m)
-                            for tx, tz in VEGETATION:
-                                dist_to_t = math.sqrt((x_3d - tx)**2 + (z_3d - tz)**2)
-                                if dist_to_t < 4.0 and alt < 6.5: # Tree branch range
-                                    collision_warning = True
-                                    
-                            # Check barn complex
-                            dist_to_barn = math.sqrt((x_3d - 150)**2 + (z_3d - (-200))**2)
-                            if dist_to_barn < 17.0 and alt < 13.0:
-                                collision_warning = True
+                    # Phase 4: Simulated Weather Front
+                    # Periodic high winds or storm
+                    is_storming = (math.sin(t * 0.05) > 0.8)
+                    wind_speed = 5.0 if is_storming else 1.2
+                    wind_dir = (t * 2) % 360
 
-                        # 4. AI Predictive RTL Calculator (Point of No Return)
-                        dist_to_home = math.sqrt(x_3d**2 + z_3d**2)
-                        
-                        # Calculate wind vector component against return path
-                        heading_to_home = math.atan2(-x_3d, -z_3d) # relative angle towards 0,0
-                        wind_dir_rad = math.radians(wind_dir)
-                        # dot product of wind vector with home vector
-                        wind_opposing = wind_speed * math.cos(heading_to_home - wind_dir_rad)
-                        
-                        cruise_speed = 11.0 # m/s
-                        return_speed = max(2.5, cruise_speed - wind_opposing)
-                        time_needed = dist_to_home / return_speed
-                        # Estimate battery required for return flight (0.08% drain rate/sec during cruise return + 8% safety buffer)
-                        battery_needed = (time_needed * 0.015) + 8.0
-                        
-                        # Auto-Trigger RTL if envelope crossed
-                        if is_armed and not is_rtl and battery <= battery_needed and alt > 1.5:
-                            is_rtl = True
-                            is_landing = False
-                            target_wp = None
-                            mission_waypoints = []
-                            print("🚨 AI PREDICTIVE RTL ACTIVATED - Battery low against opposing wind vector!")
+                    fleet_payload = {}
+                    for d in drones:
+                        d.update(dt, wind_speed, wind_dir)
+                        payload = d.get_payload()
+                        # Override weather info in payload
+                        payload["ai_analysis"]["wind_speed_mps"] = wind_speed
+                        payload["ai_analysis"]["wind_dir_deg"] = wind_dir
+                        payload["ai_analysis"]["is_storming"] = is_storming
+                        fleet_payload[d.id] = payload
 
-                        # Safe flight envelope radius (in meters)
-                        safe_flight_radius = max(0.0, ((battery - 8.0) / 0.015) * return_speed)
-
-                        # 5. Physics & Flight dynamics
-                        BASE_SPEED_FACTOR = 0.0000100
-                        BASE_ALT_SPEED = 0.08
-                        YAW_SPEED = 3.5
-
-                        v_forward, v_right, v_alt, v_yaw = 0.0, 0.0, 0.0, 0.0
-                        target_pitch, target_roll = 0.0, 0.0
-
-                        if is_armed:
-                            if is_rtl:
-                                target_alt = 15.0
-                                dist_lat_m = (home_lat - lat) * 111319
-                                dist_lon_m = (home_lon - lon) * 111319 * math.cos(math.radians(lat))
-                                dist_to_home_gps = math.sqrt(dist_lat_m**2 + dist_lon_m**2)
-
-                                if dist_to_home_gps < 1.8:
-                                    is_landing = True
-
-                                if not is_landing:
-                                    if alt < (target_alt - 1.0):
-                                        vel_alt += (BASE_ALT_SPEED - vel_alt) * 0.15
-                                        vel_forward *= 0.8
-                                    elif alt > (target_alt + 1.0):
-                                        vel_alt += (-BASE_ALT_SPEED - vel_alt) * 0.15
-                                        vel_forward *= 0.8
-                                    else:
-                                        vel_alt *= 0.9
-
-                                    # Navigate towards home
-                                    target_heading = (math.degrees(math.atan2(dist_lon_m, dist_lat_m)) + 360) % 360
-                                    angle_diff = (target_heading - heading + 180) % 360 - 180
-                                    
-                                    target_vyaw = max(-YAW_SPEED, min(YAW_SPEED, angle_diff * 0.2))
-                                    vel_yaw += (target_vyaw - vel_yaw) * 0.2
-                                    
-                                    if abs(angle_diff) < 30:
-                                        target_vf = BASE_SPEED_FACTOR * 1.5
-                                        target_pitch = -10.0
-                                    else:
-                                        target_vf = 0.0
-                                    vel_forward += (target_vf - vel_forward) * 0.15
-                                    vel_right *= 0.8
-                                else:
-                                    # Landing Phase
-                                    vel_forward += (0.0 - vel_forward) * 0.15
-                                    vel_right += (0.0 - vel_right) * 0.15
-                                    vel_yaw += (0.0 - vel_yaw) * 0.15
-                                    
-                                    vel_alt += (-BASE_ALT_SPEED * 0.5 - vel_alt) * 0.08
-                                    
-                                    if alt < 0.15:
-                                        is_rtl = False
-                                        is_landing = False
-                                        is_armed = False
-                                        vel_alt = 0.0
-                                        alt = 0.0
-                                        print("RTL: Landed and Disarmed.")
-                                
-                                v_forward = vel_forward
-                                v_right = vel_right
-                                v_alt = vel_alt
-                                v_yaw = vel_yaw
-
-                            elif target_wp:
-                                t_lat, t_lon = target_wp['lat'], target_wp['lon']
-                                t_alt = target_wp.get('alt', 15)
-
-                                dist_lat_m = (t_lat - lat) * 111319
-                                dist_lon_m = (t_lon - lon) * 111319 * math.cos(math.radians(lat))
-                                dist_to_wp = math.sqrt(dist_lat_m**2 + dist_lon_m**2)
-
-                                if alt < (t_alt - 0.5): 
-                                    vel_alt += (BASE_ALT_SPEED - vel_alt) * 0.15
-                                elif alt > (t_alt + 0.5): 
-                                    vel_alt += (-BASE_ALT_SPEED - vel_alt) * 0.15
-                                else:
-                                    vel_alt *= 0.9
-
-                                if dist_to_wp > 1.2:
-                                    target_heading = (math.degrees(math.atan2(dist_lon_m, dist_lat_m)) + 360) % 360
-                                    angle_diff = (target_heading - heading + 180) % 360 - 180
-                                    
-                                    target_vyaw = max(-YAW_SPEED, min(YAW_SPEED, angle_diff * 0.3))
-                                    vel_yaw += (target_vyaw - vel_yaw) * 0.2
-                                    
-                                    if abs(angle_diff) < 30:
-                                        target_vf = BASE_SPEED_FACTOR * 1.2
-                                        target_pitch = -8.0
-                                    else:
-                                        target_vf = 0.0
-                                    vel_forward += (target_vf - vel_forward) * 0.15
-                                else:
-                                    print("📍 Waypoint Reached.")
-                                    if mission_waypoints:
-                                        target_wp = mission_waypoints.pop(0)
-                                        print(f"📍 AI Route: Moving to next waypoint: {target_wp}")
-                                    else:
-                                        target_wp = None
-                                        vel_forward *= 0.8
-                                        vel_yaw *= 0.8
-                                
-                                v_forward = vel_forward
-                                v_right = vel_right
-                                v_alt = vel_alt
-                                v_yaw = vel_yaw
-
-                            else:
-                                # Manual control with collision override
-                                speed_factor = BASE_SPEED_FACTOR * f_speed_mult
-                                alt_speed = BASE_ALT_SPEED * c_speed_mult
-
-                                target_vf = 0.0
-                                target_vr = 0.0
-                                target_va = 0.0
-                                target_vy = 0.0
-
-                                if 'PITCH_FORWARD' in active_inputs: target_vf = speed_factor; target_pitch = -12.0 * f_speed_mult
-                                if 'PITCH_BACK' in active_inputs: target_vf = -speed_factor; target_pitch = 12.0 * f_speed_mult
-                                if 'ROLL_LEFT' in active_inputs: target_vr = -speed_factor; target_roll = -12.0 * f_speed_mult
-                                if 'ROLL_RIGHT' in active_inputs: target_vr = speed_factor; target_roll = 12.0 * f_speed_mult
-                                if 'ALT_UP' in active_inputs: target_va = alt_speed
-                                if 'ALT_DOWN' in active_inputs: target_va = -alt_speed
-                                if 'YAW_LEFT' in active_inputs: target_vy = -YAW_SPEED * f_speed_mult
-                                if 'YAW_RIGHT' in active_inputs: target_vy = YAW_SPEED * f_speed_mult
-
-                                ACCEL = 0.22
-                                DRAG = 0.04
-
-                                k_vf = ACCEL if target_vf != 0 else DRAG
-                                k_vr = ACCEL if target_vr != 0 else DRAG
-                                k_va = ACCEL if target_va != 0 else DRAG
-                                k_vy = ACCEL if target_vy != 0 else DRAG
-
-                                vel_forward += (target_vf - vel_forward) * k_vf
-                                vel_right += (target_vr - vel_right) * k_vr
-                                vel_alt += (target_va - vel_alt) * k_va
-                                vel_yaw += (target_vy - vel_yaw) * k_vy
-
-                                # Collision Avoidance Auto Braking
-                                if collision_warning:
-                                    vel_forward *= 0.1
-                                    vel_right *= 0.1
-                                    if vel_alt < 0: vel_alt = 0.0
-
-                                v_forward = vel_forward
-                                v_right = vel_right
-                                v_alt = vel_alt
-                                v_yaw = vel_yaw
-
-                            # 6. Position Update with Strict Hard-Collision Enforcement
-                            rad = math.radians(heading)
-                            next_lat = lat + (v_forward * math.cos(rad) - v_right * math.sin(rad))
-                            next_lon = lon + (v_forward * math.sin(rad) + v_right * math.cos(rad))
-
-                            # Convert tentative next coordinates to 3D relative positions
-                            next_x_3d = (next_lon - home_lon) / lonPerMeter
-                            next_z_3d = -(next_lat - home_lat) / latPerMeter
-
-                            # Get terrain height at target coordinates
-                            terrain_h = get_terrain_height(next_x_3d, next_z_3d)
-                            
-                            next_alt = alt + v_alt
-                            if next_alt < terrain_h:
-                                next_alt = terrain_h
-
-                            # Check for hard collisions
-                            collides = False
-                            
-                            # Skyscrapers (Exact AABB collision box check)
-                            for b in SKYSCRAPERS:
-                                dx = abs(next_x_3d - b["x"])
-                                dz = abs(next_z_3d - b["z"])
-                                half_w = b["width"] / 2.0
-                                if dx < half_w and dz < half_w and next_alt < b["height"]:
-                                    collides = True
-                            
-                            # Trees
-                            for tx, tz in VEGETATION:
-                                dist_to_t = math.sqrt((next_x_3d - tx)**2 + (next_z_3d - tz)**2)
-                                if dist_to_t < 2.5 and next_alt < 6.5: # Hard boundary
-                                    collides = True
-                                    
-                            # Barn Complex
-                            dist_to_barn = math.sqrt((next_x_3d - 150)**2 + (next_z_3d - (-200))**2)
-                            if dist_to_barn < 15.0 and next_alt < 13.0: # Hard boundary
-                                collides = True
-
-                            if collides:
-                                # Lock movement and zero out velocities
-                                vel_forward = 0.0
-                                vel_right = 0.0
-                                vel_alt = 0.0
-                                collision_warning = True
-                                heading = (heading + v_yaw) % 360
-                                # Keep lat, lon, alt at current values
-                            else:
-                                lat = next_lat
-                                lon = next_lon
-                                alt = next_alt
-                                heading = (heading + v_yaw) % 360
-                        else:
-                            vel_forward = vel_right = vel_yaw = 0.0
-                            current_x = (lon - home_lon) / lonPerMeter
-                            current_z = -(lat - home_lat) / latPerMeter
-                            terrain_h = get_terrain_height(current_x, current_z)
-                            if alt > terrain_h: 
-                                vel_alt += (-0.1 - vel_alt) * 0.2
-                                alt += vel_alt
-                            if alt < terrain_h: 
-                                alt = terrain_h
-                                vel_alt = 0.0
-
-                        # Visual Tilt Interpolation
-                        pitch += (target_pitch - pitch) * 0.15
-                        roll += (target_roll - roll) * 0.15
-                        if not active_inputs and not is_rtl and not target_wp: 
-                            pitch *= 0.85
-                            roll *= 0.85
-
-                        # Simulated AI Diagnosticts metrics based on drone coordinate quadrants
-                        # In the Village quadrant (NE), weed count is higher.
-                        # In the Desert quadrant (SW), it is low. In City/Mountains it is 0.
-                        weeds_found = 0
-                        stress_found = 0
-                        if lat > home_lat and lon > home_lon:
-                            weeds_found = int(5 + 3 * math.sin(t * 0.2))
-                            stress_found = int(2 + math.cos(t * 0.15))
-                        elif lat < home_lat and lon < home_lon:
-                            weeds_found = int(1 + math.cos(t * 0.1))
-                            stress_found = 0
-
-                        # Calculate current distance to waypoint if active
-                        current_dist_to_wp = 0.0
-                        if target_wp:
-                            dist_lat_m = (target_wp['lat'] - lat) * 111319
-                            dist_lon_m = (target_wp['lon'] - lon) * 111319 * math.cos(math.radians(lat))
-                            current_dist_to_wp = math.sqrt(dist_lat_m**2 + dist_lon_m**2)
-
-                        # Send telemetry JSON payload
-                        payload = {
-                            "timestamp": int(time.time() * 1000), 
-                            "is_connected": True,
-                            "is_active": is_armed,
-                            "drone_state": {
-                                "gps": {"latitude": lat, "longitude": lon, "altitude_relative_m": alt},
-                                "orientation_deg": {"pitch": pitch, "roll": roll, "yaw_heading": heading},
-                                "battery_percentage": int(battery)
-                            },
-                            "navigation_target": {
-                                "next_waypoint_gps": {
-                                    "latitude": target_wp['lat'], 
-                                    "longitude": target_wp['lon'],
-                                    "altitude_relative_m": target_wp.get('alt', 15.0)
-                                } if target_wp else {
-                                    "latitude": home_lat, 
-                                    "longitude": home_lon,
-                                    "altitude_relative_m": 0.0
-                                },
-                                "distance_to_wp_m": float(current_dist_to_wp),
-                                "coverage_efficiency_score": 1.0
-                            },
-                            "ai_analysis": {
-                                "weed_count": weeds_found,
-                                "pest_stressed_count": stress_found,
-                                "collision_warning": collision_warning,
-                                "safe_flight_radius_m": float(safe_flight_radius),
-                                "wind_speed_mps": float(wind_speed),
-                                "wind_dir_deg": float(wind_dir)
-                            }
-                        }
-                        
-                        await ws.send(json.dumps(payload))
-                        await asyncio.sleep(0.02)
-                finally:
-                    listener_task.cancel()
-        except (websockets.exceptions.ConnectionClosed, OSError) as e:
-            print(f"🔌 Connection closed/failed ({e}). Retrying in 2 seconds...")
+                    # The current backend expects a single TelemetryData object.
+                    # To keep it working, we broadcast the ACTIVE drone's telemetry as the main object.
+                    # Or we update the backend to handle a fleet dictionary.
+                    # For now, let's send a special MULTI_TELEMETRY type.
+                    await ws.send(json.dumps({
+                        "type": "FLEET_UPDATE",
+                        "drones": fleet_payload
+                    }))
+                    
+                    await asyncio.sleep(0.05)
+        except:
             await asyncio.sleep(2)
 
 if __name__ == "__main__":
-    asyncio.run(simulate_drone())
+    asyncio.run(simulate_fleet())
