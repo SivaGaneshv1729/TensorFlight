@@ -1,9 +1,44 @@
-import React, { useRef } from 'react'
+import React, { useRef, useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { View, PerspectiveCamera, Line } from '@react-three/drei'
+import { View, PerspectiveCamera, Line, Points, PointMaterial } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from './Environment'
+
+function Rain({ isStorming }) {
+  const points = useRef()
+  const count = 2000
+  
+  const positions = useMemo(() => {
+    const pos = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 200
+      pos[i * 3 + 1] = Math.random() * 100
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 200
+    }
+    return pos
+  }, [count])
+
+  useFrame((state, delta) => {
+    if (!isStorming || !points.current) return
+    const array = points.current.geometry.attributes.position.array
+    for (let i = 0; i < count; i++) {
+      array[i * 3 + 1] -= 40 * delta
+      if (array[i * 3 + 1] < 0) {
+        array[i * 3 + 1] = 100
+      }
+    }
+    points.current.geometry.attributes.position.needsUpdate = true
+  })
+
+  if (!isStorming) return null
+
+  return (
+    <Points ref={points} positions={positions}>
+      <PointMaterial transparent color="#60a5fa" size={0.15} sizeAttenuation={true} depthWrite={false} opacity={0.4} />
+    </Points>
+  )
+}
 
 function HUDOverlay() {
   const groupRef = useRef()
@@ -104,11 +139,15 @@ function HolographicTargetLine() {
 }
 
 export default function Scene() {
+  const telemetry = useTelemetryStore((state) => state.telemetry)
+  const isStorming = telemetry.ai_analysis?.is_storming ?? false
+
   return (
     <View className="w-full h-full">
       <Environment />
       <HUDOverlay />
       <HolographicTargetLine />
+      <Rain isStorming={isStorming} />
     </View>
   )
 }

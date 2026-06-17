@@ -8,6 +8,7 @@ import Sidebar from './components/Sidebar'
 import Scene from './canvas/Scene'
 import DroneViews from './components/DroneViews'
 import MapView from './components/MapView'
+import AIOverlay from './components/AIOverlay'
 
 import useWebSocket from './useWebSocket'
 import useKeyboardControls from './useKeyboardControls'
@@ -15,109 +16,111 @@ import useTelemetryStore from './store/useTelemetryStore'
 
 function TopStatusBar() {
   const telemetry = useTelemetryStore((state) => state.telemetry)
+  const activeDroneId = useTelemetryStore((state) => state.activeDroneId)
+  const setActiveDroneId = useTelemetryStore((state) => state.setActiveDroneId)
+  
   const isConnected = telemetry.is_connected
   const battery = telemetry.drone_state.battery_percentage
   const lat = telemetry.drone_state.gps.latitude
   const lon = telemetry.drone_state.gps.longitude
 
   return (
-    <header className="h-10 bg-[#0B0E14] border-b border-agri-neon/20 flex items-center justify-between px-6 z-50 shadow-lg relative overflow-hidden shrink-0">
-      <div className="absolute inset-0 bg-[repeating-linear-gradient(90deg,transparent,transparent_40px,rgba(0,229,255,0.02)_40px,rgba(0,229,255,0.02)_41px)] pointer-events-none" />
-      
-      <div className="flex items-center gap-6">
+    <header className="h-8 bg-slate-900 border-b border-slate-700 flex items-center justify-between px-4 z-50 relative shrink-0">
+      <div className="flex items-center gap-4">
         <div className="flex items-center gap-2">
-          <div className="w-1.5 h-4 bg-agri-neon rounded-full shadow-[0_0_8px_#39ff14]" />
-          <span className="text-xs font-black text-white tracking-[0.3em] uppercase italic font-mono">AgriHUD_UAV_Station</span>
+          <div className="w-1 h-3 bg-green-500" />
+          <span className="text-[10px] font-black text-white tracking-widest uppercase font-mono">UAV_STATION_CORE</span>
         </div>
-        <div className="h-4 w-[1px] bg-white/10" />
-        <div className="flex items-center gap-3 text-[10px] font-mono text-agri-neon/80 uppercase tracking-widest font-bold">
-           <Clock size={12} /> {new Date().toLocaleTimeString([], { hour12: false })}
+        
+        <div className="h-3 w-[1px] bg-slate-700" />
+
+        {/* FLEET SELECTOR - MADE MORE PROMINENT */}
+        <div className="flex items-center gap-1 bg-black/40 border border-slate-700 p-0.5 rounded-sm">
+           {['UAV_01', 'UAV_02', 'UAV_03'].map(id => (
+             <button 
+               key={id}
+               onClick={() => setActiveDroneId(id)}
+               className={`px-2 py-0.5 text-[9px] font-bold transition-all ${activeDroneId === id ? 'bg-blue-600 text-white shadow-sm' : 'text-slate-500 hover:text-white'}`}
+             >
+               {id}
+             </button>
+           ))}
         </div>
       </div>
 
-      <div className="flex items-center gap-8">
-        <div className="flex items-center gap-2 group">
-          <Satellite size={14} className={isConnected ? "text-agri-neon" : "text-red-500"} />
-          <span className="text-[10px] font-mono font-black text-white">SATS: 12 [FIX-3D]</span>
-        </div>
-        <div className="flex items-center gap-2 group">
-          <Wifi size={14} className={isConnected ? "text-agri-neon" : "text-red-500"} />
-          <span className="text-[10px] font-mono font-black text-white">RSSI: -42dBm</span>
+      <div className="flex items-center gap-6">
+        <div className="flex items-center gap-1.5">
+          <Satellite size={12} className={isConnected ? "text-green-500" : "text-red-500"} />
+          <span className="text-[9px] font-mono font-bold text-slate-400">GNSS_FIX</span>
         </div>
         <div className="flex items-center gap-3">
-          <Battery size={14} className={battery > 20 ? "text-agri-neon" : "text-red-500 animate-pulse"} />
-          <div className="w-16 h-2 bg-white/5 border border-white/10 p-[1px] rounded-sm">
-            <div className={`h-full ${battery > 20 ? 'bg-agri-neon' : 'bg-red-500'}`} style={{ width: `${battery}%` }} />
+          <div className="w-12 h-1.5 bg-black border border-slate-700 overflow-hidden">
+            <div className={`h-full ${battery > 20 ? 'bg-green-500' : 'bg-red-500 animate-pulse'}`} style={{ width: `${battery}%` }} />
           </div>
-          <span className="text-[10px] font-mono font-black text-white">{battery}%</span>
+          <span className="text-[9px] font-mono font-bold text-white">{battery}%</span>
         </div>
-      </div>
-
-      <div className="flex items-center gap-4 pl-4 border-l border-white/10">
-         <span className="text-[9px] font-mono text-gray-500 uppercase">POS_REF:</span>
-         <span className="text-[10px] font-mono font-bold text-agri-neon/80">{lat.toFixed(6)} N, {lon.toFixed(6)} W</span>
+        <div className="flex items-center gap-2 text-[9px] font-mono text-slate-400 font-bold border-l border-slate-700 pl-4">
+           {lat.toFixed(5)}, {lon.toFixed(5)}
+        </div>
       </div>
     </header>
   )
 }
 
 function AIMonitor() {
-  const aiAnalysis = useTelemetryStore((state) => state.telemetry.ai_analysis) || {
+  const telemetry = useTelemetryStore((state) => state.telemetry)
+  const aiAnalysis = telemetry.ai_analysis || {
     weed_count: 0,
     pest_stressed_count: 0,
     collision_warning: false,
     wind_speed_mps: 0.0,
-    wind_dir_deg: 0.0
+    wind_dir_deg: 0.0,
+    is_storming: false
   }
 
   const systems = [
     { name: 'V-LIDAR', status: 'OK', color: 'text-green-500' },
     { name: 'OPTICAL_SENSE', status: 'OK', color: 'text-green-500' },
     { name: 'B-POINT_NAV', status: aiAnalysis.collision_warning ? 'ALERT' : 'OK', color: aiAnalysis.collision_warning ? 'text-red-500 animate-pulse' : 'text-green-500' },
-    { name: 'ATMOS_COMP', status: 'AUTO', color: 'text-agri-neon' }
+    { name: 'WTHR_MOD', status: aiAnalysis.is_storming ? 'STORM' : 'CLEAR', color: aiAnalysis.is_storming ? 'text-amber-500 animate-pulse' : 'text-blue-400' }
   ]
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between border-b border-agri-neon/20 pb-2">
-         <h3 className="text-[10px] text-agri-neon uppercase tracking-widest font-black flex items-center gap-2">
-            <Target size={14} /> EICAS_DIAGNOSTIC
+    <div className="flex flex-col gap-2">
+      <div className="flex items-center justify-between border-b border-slate-700 pb-1">
+         <h3 className="text-[9px] text-slate-400 uppercase tracking-widest font-black flex items-center gap-1.5">
+            <Target size={12} /> EICAS_DIAG
          </h3>
-         <span className="text-[8px] text-cyan-900 bg-agri-neon/10 px-1 rounded uppercase font-bold">AI_Core_Active</span>
       </div>
       
-      <div className="space-y-1">
+      <div className="grid grid-cols-1 gap-0.5">
         {systems.map(s => (
-          <div key={s.name} className="flex justify-between items-center py-1.5 px-3 bg-black border border-white/5 shadow-inner">
-            <span className="text-[9px] text-gray-400 font-bold uppercase font-mono tracking-tighter">{s.name}</span>
-            <span className={`text-[9px] font-black font-mono ${s.color}`}>{s.status}</span>
+          <div key={s.name} className="flex justify-between items-center py-1 px-2 bg-black/20 border border-white/5">
+            <span className="text-[8px] text-gray-500 font-bold uppercase font-mono tracking-tighter">{s.name}</span>
+            <span className={`text-[8px] font-black font-mono ${s.color}`}>{s.status}</span>
           </div>
         ))}
       </div>
 
-      <div className="bg-black border border-agri-neon/30 p-3 rounded-sm shadow-[0_0_10px_rgba(0,229,255,0.05)] relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-1 opacity-20"><Wind size={32} className="text-agri-neon" /></div>
-        <span className="text-[9px] text-agri-neon uppercase font-bold block mb-2 font-mono">Atmospheric_Data</span>
-        <div className="flex justify-between items-end relative z-10">
-          <div className="flex flex-col">
-             <span className="text-2xl font-black text-white font-mono leading-none tracking-tighter">{aiAnalysis.wind_speed_mps.toFixed(1)}</span>
-             <span className="text-[8px] text-agri-neon/60 font-black uppercase">METERS / SEC</span>
+      <div className="bg-black/40 border border-slate-700 p-2 relative overflow-hidden">
+        <span className="text-[8px] text-slate-500 uppercase font-bold block mb-1 font-mono tracking-widest">METEO_DATA</span>
+        <div className="flex justify-between items-center relative z-10">
+          <div className="flex items-baseline gap-1">
+             <span className="text-lg font-black text-white font-mono leading-none">{aiAnalysis.wind_speed_mps.toFixed(1)}</span>
+             <span className="text-[7px] text-slate-600 font-black uppercase">M/S</span>
           </div>
-          <div className="flex flex-col items-end">
-             <span className="text-sm font-black text-white font-mono leading-none">{aiAnalysis.wind_dir_deg.toFixed(0)}°</span>
-             <span className="text-[8px] text-agri-neon/60 font-black uppercase">BEARING_REF</span>
-          </div>
+          <div className="text-[9px] font-black text-slate-400 font-mono">{aiAnalysis.wind_dir_deg.toFixed(0)}°</div>
         </div>
       </div>
       
-      <div className="grid grid-cols-2 gap-2">
-        <div className="bg-black border border-white/10 p-2 flex flex-col items-center">
-           <span className="text-[8px] text-gray-500 uppercase font-black mb-1">Target_Link</span>
-           <span className="text-lg font-black text-agri-neon font-mono leading-none">{aiAnalysis.weed_count}</span>
+      <div className="grid grid-cols-2 gap-1">
+        <div className="bg-black/40 border border-white/5 p-1.5 flex flex-col items-center">
+           <span className="text-[7px] text-gray-500 uppercase font-black">AI_TRGT</span>
+           <span className="text-sm font-black text-green-500 font-mono">{aiAnalysis.weed_count}</span>
         </div>
-        <div className="bg-black border border-white/10 p-2 flex flex-col items-center">
-           <span className="text-[8px] text-gray-500 uppercase font-black mb-1">Biomass_Lvl</span>
-           <span className={`text-lg font-black font-mono leading-none ${aiAnalysis.pest_stressed_count > 0 ? 'text-amber-500' : 'text-green-500'}`}>98%</span>
+        <div className="bg-black/40 border border-white/5 p-1.5 flex flex-col items-center">
+           <span className="text-[7px] text-gray-500 uppercase font-black">AI_PEST</span>
+           <span className={`text-sm font-black font-mono ${aiAnalysis.pest_stressed_count > 0 ? 'text-red-500' : 'text-slate-500'}`}>{aiAnalysis.pest_stressed_count}</span>
         </div>
       </div>
     </div>
@@ -132,11 +135,11 @@ function App() {
   const setShowMap = useTelemetryStore((state) => state.setShowMap)
   
   return (
-    <div ref={container} className="fixed inset-0 bg-[#07090D] text-white overflow-hidden font-sans selection:bg-agri-neon selection:text-white flex flex-col uppercase">
+    <div ref={container} className="fixed inset-0 bg-slate-950 text-slate-200 overflow-hidden font-sans flex flex-col selection:bg-blue-600">
       
       <TopStatusBar />
 
-      <div className="flex-1 relative overflow-hidden flex">
+      <div className="flex-1 relative overflow-hidden flex p-1 gap-1">
         
         {/* LAYER 0: VIDEO */}
         <div className="absolute inset-0 z-0 pointer-events-none">
@@ -144,9 +147,9 @@ function App() {
         </div>
 
         {/* LAYER 1: FIXED BACKGROUND PANELS (Behind Canvas) */}
-        <div className="fixed inset-y-10 left-0 w-80 bg-[#0B0E14] border-r border-agri-neon/20 shadow-2xl pointer-events-none" style={{ zIndex: 5 }} />
-        <div className="fixed inset-y-10 right-0 w-96 bg-[#0B0E14] border-l border-agri-neon/20 shadow-2xl pointer-events-none" style={{ zIndex: 5 }} />
-        <div className="fixed bottom-0 left-80 right-96 h-72 bg-[#0B0E14] border-t border-agri-neon/20 shadow-2xl pointer-events-none" style={{ zIndex: 5 }} />
+        <div className="fixed top-9 bottom-1 left-1 w-64 bg-slate-900 border border-slate-700 pointer-events-none" style={{ zIndex: 5 }} />
+        <div className="fixed top-9 bottom-1 right-1 w-72 bg-slate-900 border border-slate-700 pointer-events-none" style={{ zIndex: 5 }} />
+        <div className="fixed bottom-1 left-[262px] right-[294px] h-52 bg-slate-900 border border-slate-700 pointer-events-none" style={{ zIndex: 5 }} />
 
         {/* LAYER 2: 3D CANVAS */}
         <div className="fixed inset-0 pointer-events-none" style={{ zIndex: 10 }}>
@@ -166,46 +169,46 @@ function App() {
         </div>
 
         {/* LAYER 3: UI CONTENT */}
-        <div className="relative z-20 flex h-full w-full pointer-events-none">
+        <div className="relative z-20 flex h-full w-full pointer-events-none gap-1">
            
-           {/* LEFT: MONITORING */}
-           <aside className="w-80 h-full flex-none flex flex-col pointer-events-auto relative">
-              <div className="p-0 border-b border-agri-neon/10">
-                 <DroneViews />
+           {/* LEFT PANEL */}
+           <aside className="w-64 h-full flex-none flex flex-col pointer-events-auto">
+              <div className="p-1.5 bg-slate-800 border-b border-slate-700 font-bold text-[8px] tracking-widest uppercase">
+                 Systems_Diag
               </div>
-              <div className="flex-1 overflow-y-auto no-scrollbar p-5">
+              <div className="flex-1 overflow-y-auto no-scrollbar p-2 space-y-3 bg-transparent">
+                 <DroneViews />
                  <AIMonitor />
               </div>
            </aside>
 
-           {/* CENTER: FLIGHT DATA */}
-           <main className="flex-1 h-full flex flex-col min-w-[500px] relative pointer-events-none">
-              <section className="flex-1 relative overflow-hidden pointer-events-auto">
+           {/* CENTER PANEL */}
+           <main className="flex-1 h-full flex flex-col gap-1 relative pointer-events-none">
+              <section className="flex-1 relative overflow-hidden bg-black/10 border border-slate-700 pointer-events-auto">
                  <div className="absolute inset-0 pointer-events-none">
                     <Scene />
                  </div>
                  <div className="absolute inset-0 pointer-events-none">
                     <HUD />
                  </div>
+                 <AIOverlay />
               </section>
-
-              <footer className="h-72 flex-none pointer-events-auto relative overflow-hidden">
-                 <div className="w-full h-full">
-                    <StatsConsole />
-                 </div>
+              
+              <footer className="h-52 flex-none pointer-events-auto relative">
+                 <StatsConsole />
               </footer>
            </main>
 
-           {/* RIGHT: COMMAND */}
-           <aside className="w-96 h-full flex-none flex flex-col pointer-events-auto relative">
-              <Sidebar />
+           {/* RIGHT PANEL */}
+           <aside className="w-72 h-full flex-none flex flex-col pointer-events-auto">
+               <Sidebar />
            </aside>
 
         </div>
 
         {/* MODAL OVERLAYS */}
         {showMap && (
-          <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-black/80 backdrop-blur-lg p-12">
+          <div className="fixed inset-0 z-50 pointer-events-auto flex items-center justify-center bg-slate-950/90 p-12">
              <MapView onClose={() => setShowMap(false)} />
           </div>
         )}
