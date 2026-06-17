@@ -67,6 +67,40 @@ function TopStatusBar() {
   )
 }
 
+function FleetHealthMonitor() {
+  const fleet = useTelemetryStore((state) => state.fleet)
+  const activeDroneId = useTelemetryStore((state) => state.activeDroneId)
+  const setActiveDroneId = useTelemetryStore((state) => state.setActiveDroneId)
+
+  const droneColors = {
+    'UAV_01': 'bg-green-500',
+    'UAV_02': 'bg-blue-600',
+    'UAV_03': 'bg-purple-600'
+  }
+
+  return (
+    <div className="flex flex-col gap-2 p-2 bg-black/40 border border-slate-700 rounded-sm mb-4">
+       <div className="flex items-center gap-1.5 border-b border-slate-800 pb-1 mb-1">
+          <div className="w-1.5 h-1.5 bg-slate-400 rounded-full animate-pulse" />
+          <span className="text-[8px] font-black text-slate-400 uppercase tracking-widest">Global_Fleet_Health</span>
+       </div>
+       <div className="space-y-2">
+          {Object.entries(fleet).map(([id, data]) => (
+            <div key={id} onClick={() => setActiveDroneId(id)} className={`group cursor-pointer p-1 border ${id === activeDroneId ? 'border-slate-500 bg-slate-800' : 'border-transparent hover:bg-white/5'} transition-all`}>
+               <div className="flex justify-between items-center mb-1">
+                  <span className={`text-[9px] font-black ${id === activeDroneId ? 'text-white' : 'text-slate-500 group-hover:text-slate-300'}`}>{id}</span>
+                  <span className="text-[7px] font-mono text-slate-600 uppercase">{data.is_active ? 'Armed' : 'Standby'}</span>
+               </div>
+               <div className="w-full h-1 bg-black rounded-full overflow-hidden">
+                  <div className={`h-full transition-all duration-1000 ${droneColors[id] || 'bg-slate-500'}`} style={{ width: `${data.drone_state.battery_percentage}%` }} />
+               </div>
+            </div>
+          ))}
+       </div>
+    </div>
+  )
+}
+
 function AIMonitor() {
   const telemetry = useTelemetryStore((state) => state.telemetry)
   const aiAnalysis = telemetry.ai_analysis || {

@@ -117,10 +117,17 @@ async def simulate_fleet():
     url = "ws://127.0.0.1:8000/ws/simulator"
     
     drones = [
+        # UAV_01: Starting at Home (Farm/NE)
         DroneSimulator("UAV_01", 41.7315, -93.8587),
-        DroneSimulator("UAV_02", 41.7320, -93.8595),
-        DroneSimulator("UAV_03", 41.7310, -93.8575)
+        # UAV_02: Starting in the City (NW)
+        DroneSimulator("UAV_02", 41.7345, -93.8640),
+        # UAV_03: Starting in the Desert (SW)
+        DroneSimulator("UAV_03", 41.7280, -93.8640)
     ]
+    
+    # Pre-randomize batteries for instant visual difference
+    drones[1].battery = 84.0
+    drones[2].battery = 42.0
 
     while True:
         try:
