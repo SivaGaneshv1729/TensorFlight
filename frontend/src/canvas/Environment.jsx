@@ -2,200 +2,90 @@ import React, { useMemo } from 'react'
 import { Sky } from '@react-three/drei'
 import * as THREE from 'three'
 
-// 1. ASSET GENERATION BASED ON 4 QUADRANTS
-// NE: Village Crops (X > 10, Z < -10)
-// NW: City Skyscrapers (X < -10, Z < -10)
-// SW: Desert & Cacti (X < -10, Z > 10)
-// SE: Mountain Peaks (X > 10, Z > 10)
-
+// Utility for deterministic randomness
 function seedRandom(i, seed) {
   const x = Math.sin(i * 12.9898 + seed * 78.233) * 43758.5453123;
   return x - Math.floor(x);
 }
 
-const VILLAGE_TREES = []
-for (let i = 0; i < 150; i++) {
-  const randAngle = seedRandom(i, 1)
-  const randDist = seedRandom(i, 2)
-  const angle = randAngle * Math.PI * 0.5 + Math.PI // Top-Right NE quadrant
-  const dist = 50 + randDist * 400
-  VILLAGE_TREES.push({
-    position: [Math.sin(angle) * dist, 0, -Math.abs(Math.cos(angle) * dist)],
-    scale: 0.8 + seedRandom(i, 3) * 0.5,
-    type: 'deciduous'
-  })
-}
+// Generate a massive array of obstacles
+const PALETTE = [
+  '#f43f5e', // Rose
+  '#a855f7', // Purple
+  '#3b82f6', // Blue
+  '#10b981', // Emerald
+  '#f59e0b', // Amber
+  '#ec4899', // Pink
+  '#06b6d4', // Cyan
+  '#eab308', // Yellow
+  '#ef4444', // Red
+  '#84cc16'  // Lime
+];
 
-const PINE_TREES = []
-for (let i = 0; i < 150; i++) {
-  const randAngle = seedRandom(i, 4)
-  const randDist = seedRandom(i, 5)
-  const angle = randAngle * Math.PI * 0.5 // Bottom-Right SE quadrant
-  const dist = 60 + randDist * 400
-  PINE_TREES.push({
-    position: [Math.abs(Math.sin(angle) * dist), 0, Math.abs(Math.cos(angle) * dist)],
-    scale: 0.9 + seedRandom(i, 6) * 0.6,
-    type: 'pine'
-  })
-}
+const OBSTACLES = []
+for (let i = 0; i < 600; i++) {
+  const x = (seedRandom(i, 1) - 0.5) * 800;
+  const z = (seedRandom(i, 2) - 0.5) * 800;
+  
+  // Keep a safe zone around the origin (landing pad)
+  if (Math.abs(x) < 40 && Math.abs(z) < 40) continue;
 
-const MOUNTAINS = []
-for (let i = 0; i < 20; i++) {
-  const randAngle = seedRandom(i, 7)
-  const randDist = seedRandom(i, 8)
-  const angle = randAngle * Math.PI * 0.4 // Far bottom right SE quadrant
-  const dist = 250 + randDist * 400
-  MOUNTAINS.push({
-    position: [Math.abs(Math.sin(angle) * dist) + 50, -30, Math.abs(Math.cos(angle) * dist) + 50],
-    scale: [80 + seedRandom(i, 9) * 80, 120 + seedRandom(i, 10) * 150, 80 + seedRandom(i, 11) * 80],
-    rotation: [0, seedRandom(i, 12) * Math.PI, 0]
-  })
-}
+  const isTower = seedRandom(i, 3) > 0.85;
+  const width = 4 + seedRandom(i, 4) * 12;
+  const height = isTower ? 40 + seedRandom(i, 5) * 100 : 10 + seedRandom(i, 6) * 20;
+  const depth = 4 + seedRandom(i, 7) * 12;
 
-const SKYSCRAPERS = []
-for (let i = 0; i < 45; i++) {
-  // Top-Left NW quadrant
-  const randX = seedRandom(i, 1)
-  const randZ = seedRandom(i, 2)
-  const x = -40 - (i % 6) * 65 + (randX - 0.5) * 12
-  const z = -40 - Math.floor(i / 6) * 65 + (randZ - 0.5) * 12
-  const height = 20 + randX * 55
-  const width = 14 + randZ * 8
-  SKYSCRAPERS.push({
-    position: [x, 0, z],
-    width,
-    height,
-    length: width
-  })
-}
+  const colorIndex = Math.floor(seedRandom(i, 8) * PALETTE.length);
 
-const CACTI = []
-for (let i = 0; i < 60; i++) {
-  // Bottom-Left SW quadrant
-  const x = -30 - seedRandom(i, 13) * 500
-  const z = 30 + seedRandom(i, 14) * 500
-  CACTI.push({
-    position: [x, 0, z],
-    scale: 1.0 + seedRandom(i, 15) * 1.2
+  OBSTACLES.push({
+    position: [x, height / 2 - 0.6, z],
+    args: [width, height, depth],
+    color: PALETTE[colorIndex]
   })
-}
-
-const DESERT_ROCKS = []
-for (let i = 0; i < 60; i++) {
-  const x = -30 - seedRandom(i, 16) * 500
-  const z = 30 + seedRandom(i, 17) * 500
-  DESERT_ROCKS.push({
-    position: [x, -0.4, z],
-    scale: 1.0 + seedRandom(i, 18) * 2.0,
-    rotation: [seedRandom(i, 19), seedRandom(i, 20), 0]
-  })
-}
-
-export function getTerrainHeight(x, z) {
-  return 0.0;
 }
 
 function Terrain() {
-  const terrainGeo = useMemo(() => {
-    const geo = new THREE.PlaneGeometry(4000, 4000, 80, 80)
-    const pos = geo.attributes.position
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i)
-      const y = pos.getY(i)
-      
-      // y corresponds to -z_3d in the rotated coordinate system
-      const h = getTerrainHeight(x, -y)
-      pos.setZ(i, h)
-    }
-    geo.computeVertexNormals()
-    return geo
-  }, [])
-
-  // Procedural satellite map ground textures mapping the 4 quadrants
-  const terrainTexture = useMemo(() => {
+  // Create a massive grid texture for the floor
+  const gridTexture = useMemo(() => {
     const canvas = document.createElement('canvas')
     canvas.width = 512
     canvas.height = 512
     const ctx = canvas.getContext('2d')
     
-    // Default grass fill
-    ctx.fillStyle = '#3f6212'
+    ctx.fillStyle = '#0f172a' // Very dark blue/gray base
     ctx.fillRect(0, 0, 512, 512)
-
-    // NW Quadrant (City) - Top Left in Canvas coordinates: X (0-256), Y (0-256)
-    ctx.fillStyle = '#64748b' // concrete base
-    ctx.fillRect(0, 0, 256, 256)
-    // Draw city asphalt grid
-    ctx.fillStyle = '#334155'
-    for (let i = 0; i < 6; i++) {
-      ctx.fillRect(i * 45 + 10, 0, 6, 256)
-      ctx.fillRect(0, i * 45 + 10, 256, 6)
-    }
-
-    // NE Quadrant (Village Fields Patchwork) - Top Right: X (256-512), Y (0-256)
-    ctx.fillStyle = '#2d3a1a' // Base field background
-    ctx.fillRect(256, 0, 256, 256)
-
-    // Plot A: Fallow Soil (Reddish-brown)
-    ctx.fillStyle = '#78350f'
-    ctx.fillRect(270, 15, 95, 80)
-    ctx.fillStyle = '#451a03' // dirt lines
-    for(let r = 20; r < 90; r += 12) ctx.fillRect(270, r, 95, 2)
-
-    // Plot B: Golden Wheat (Yellow-orange crop rows)
-    ctx.fillStyle = '#b45309'
-    ctx.fillRect(380, 15, 120, 80)
-    ctx.fillStyle = '#d97706' // wheat rows
-    for(let c = 385; c < 495; c += 12) ctx.fillRect(c, 15, 3, 80)
-
-    // Plot C: Fresh Green Row Crops
-    ctx.fillStyle = '#14532d'
-    ctx.fillRect(270, 115, 95, 125)
-    ctx.fillStyle = '#15803d' // bright green crop rows
-    for(let c = 275; c < 360; c += 10) ctx.fillRect(c, 115, 4, 125)
-
-    // Plot D: Alfalfa / Pasture
-    ctx.fillStyle = '#166534'
-    ctx.fillRect(380, 115, 120, 125)
-    ctx.fillStyle = '#3f6212' // grid pattern
-    for(let r = 120; r < 235; r += 15) ctx.fillRect(380, r, 120, 3)
-
-    // Dirt access tracks separating fields
-    ctx.fillStyle = '#451a03'
-    ctx.fillRect(370, 0, 8, 256) // Vertical access track
-    ctx.fillRect(256, 103, 256, 6) // Horizontal access track
-
-    // SW Quadrant (Desert Sand) - Bottom Left in Canvas: X (0-256), Y (256-512)
-    ctx.fillStyle = '#d97706' // warm desert sand
-    ctx.fillRect(0, 256, 256, 256)
-    // sand dunes details
-    ctx.fillStyle = '#b45309'
-    for (let i = 0; i < 15; i++) {
-      ctx.beginPath()
-      ctx.arc(Math.random() * 256, 256 + Math.random() * 256, 6 + Math.random() * 12, 0, Math.PI * 2)
-      ctx.fill()
-    }
-
-    // SE Quadrant (Mountain Slate) - Bottom Right in Canvas: X (256-512), Y (256-512)
-    ctx.fillStyle = '#475569' // cool slate rock
-    ctx.fillRect(256, 256, 256, 256)
     
-    // Clear landing pad base circle at the absolute center
-    ctx.beginPath()
-    ctx.arc(256, 256, 20, 0, Math.PI * 2)
-    ctx.fillStyle = '#1e293b'
-    ctx.fill()
+    ctx.strokeStyle = '#10b981' // Emerald grid lines
+    ctx.globalAlpha = 0.3
+    ctx.lineWidth = 2
+    
+    // Draw grid
+    for (let i = 0; i <= 512; i += 64) {
+      ctx.beginPath()
+      ctx.moveTo(i, 0)
+      ctx.lineTo(i, 512)
+      ctx.stroke()
+      
+      ctx.beginPath()
+      ctx.moveTo(0, i)
+      ctx.lineTo(512, i)
+      ctx.stroke()
+    }
 
     const texture = new THREE.CanvasTexture(canvas)
+    texture.wrapS = THREE.RepeatWrapping
+    texture.wrapT = THREE.RepeatWrapping
+    texture.repeat.set(100, 100) // Repeat across the vast plane
     return texture
   }, [])
 
   return (
-    <mesh geometry={terrainGeo} rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, 0]} receiveShadow>
+    <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, 0]} receiveShadow>
+      <planeGeometry args={[8000, 8000]} />
       <meshStandardMaterial 
-        map={terrainTexture}
-        roughness={0.95} 
-        metalness={0.01}
+        map={gridTexture}
+        roughness={0.9} 
+        metalness={0.1}
       />
     </mesh>
   )
@@ -203,249 +93,86 @@ function Terrain() {
 
 function LandingPad() {
   return (
-    <group position={[0, -0.6, 0]}>
-      {/* Raised Concrete Helipad Foundation */}
-      <mesh position={[0, 0.1, 0]} receiveShadow castShadow>
-        <cylinderGeometry args={[10, 10.5, 0.2, 32]} />
-        <meshStandardMaterial color="#475569" roughness={0.8} />
+    <group position={[0, -0.55, 0]}>
+      <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <circleGeometry args={[15, 32]} />
+        <meshStandardMaterial color="#020617" roughness={0.9} />
       </mesh>
-      
-      {/* Dark Inner Grip Area */}
-      <mesh position={[0, 0.21, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[0, 9.2, 32]} />
-        <meshStandardMaterial color="#1e293b" roughness={0.7} />
+      <mesh position={[0, 0.05, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
+        <ringGeometry args={[13, 14, 32]} />
+        <meshStandardMaterial color="#10b981" roughness={0.5} emissive="#10b981" emissiveIntensity={0.5} />
       </mesh>
-
-      {/* Yellow Border Safety Ring */}
-      <mesh position={[0, 0.22, 0]} rotation={[-Math.PI / 2, 0, 0]} receiveShadow>
-        <ringGeometry args={[8.2, 9.2, 32]} />
-        <meshStandardMaterial color="#fbbf24" roughness={0.5} />
-      </mesh>
-      
-      {/* Large Yellow "H" */}
-      <group position={[0, 0.23, 0]}>
-        <mesh position={[-2.2, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[1.2, 5.0]} />
-          <meshStandardMaterial color="#fbbf24" roughness={0.5} />
+      {/* Central H */}
+      <group position={[0, 0.06, 0]} rotation={[-Math.PI / 2, 0, 0]}>
+        <mesh position={[-3, 0, 0]}>
+          <planeGeometry args={[1.5, 8]} />
+          <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={0.5} />
         </mesh>
-        <mesh position={[2.2, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[1.2, 5.0]} />
-          <meshStandardMaterial color="#fbbf24" roughness={0.5} />
+        <mesh position={[3, 0, 0]}>
+          <planeGeometry args={[1.5, 8]} />
+          <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={0.5} />
         </mesh>
-        <mesh position={[0, 0, 0]} rotation={[-Math.PI / 2, 0, 0]}>
-          <planeGeometry args={[3.2, 1.2]} />
-          <meshStandardMaterial color="#fbbf24" roughness={0.5} />
+        <mesh position={[0, 0, 0]}>
+          <planeGeometry args={[4.5, 1.5]} />
+          <meshStandardMaterial color="#10b981" emissive="#10b981" emissiveIntensity={0.5} />
         </mesh>
       </group>
     </group>
   )
 }
 
-function Building({ position, width, height, length }) {
-  return (
-    <group position={position}>
-      {/* Main skyscraper block */}
-      <mesh castShadow receiveShadow position={[0, height / 2, 0]}>
-        <boxGeometry args={[width, height, length]} />
-        <meshStandardMaterial color="#334155" roughness={0.7} metalness={0.2} />
-      </mesh>
-      {/* Windows overlay */}
-      <mesh position={[0, height / 2, length / 2 + 0.05]}>
-        <planeGeometry args={[width * 0.8, height * 0.9]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.4} emissive="#38bdf8" emissiveIntensity={0.15} />
-      </mesh>
-      <mesh position={[0, height / 2, -length / 2 - 0.05]} rotation={[0, Math.PI, 0]}>
-        <planeGeometry args={[width * 0.8, height * 0.9]} />
-        <meshStandardMaterial color="#0f172a" roughness={0.4} emissive="#38bdf8" emissiveIntensity={0.15} />
-      </mesh>
-    </group>
-  )
-}
-
-function Cactus({ position, scale }) {
-  return (
-    <group position={position} scale={scale}>
-      {/* Main tall cylinder */}
-      <mesh position={[0, 1, 0]} castShadow>
-        <cylinderGeometry args={[0.16, 0.16, 2, 8]} />
-        <meshStandardMaterial color="#166534" roughness={0.9} />
-      </mesh>
-      {/* Left arm */}
-      <mesh position={[-0.3, 1.2, 0]} rotation={[0, 0, Math.PI / 4]} castShadow>
-        <cylinderGeometry args={[0.1, 0.1, 0.8, 8]} />
-        <meshStandardMaterial color="#166534" roughness={0.9} />
-      </mesh>
-      <mesh position={[-0.6, 1.5, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.1, 0.6, 8]} />
-        <meshStandardMaterial color="#166534" roughness={0.9} />
-      </mesh>
-      {/* Right arm */}
-      <mesh position={[0.3, 0.9, 0]} rotation={[0, 0, -Math.PI / 4]} castShadow>
-        <cylinderGeometry args={[0.1, 0.1, 0.8, 8]} />
-        <meshStandardMaterial color="#166534" roughness={0.9} />
-      </mesh>
-      <mesh position={[0.6, 1.2, 0]} castShadow>
-        <cylinderGeometry args={[0.1, 0.1, 0.6, 8]} />
-        <meshStandardMaterial color="#166534" roughness={0.9} />
-      </mesh>
-    </group>
-  )
-}
-
-function Tree({ type, position, scale }) {
-  return (
-    <group position={position} scale={scale}>
-      {/* Trunk with taper */}
-      <mesh position={[0, 1.2, 0]} castShadow receiveShadow>
-        <cylinderGeometry args={[0.12, 0.22, 2.4, 8]} />
-        <meshStandardMaterial color="#5c2d12" roughness={0.95} />
-      </mesh>
-      
-      {type === 'pine' ? (
-        // Layered Pine Spruce tree
-        <group position={[0, 2.2, 0]}>
-          <mesh position={[0, 0.4, 0]} castShadow>
-            <coneGeometry args={[1.5, 2.0, 7]} />
-            <meshStandardMaterial color="#0f3a20" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 1.3, 0]} castShadow>
-            <coneGeometry args={[1.1, 1.6, 7]} />
-            <meshStandardMaterial color="#14532d" roughness={0.8} />
-          </mesh>
-          <mesh position={[0, 2.1, 0]} castShadow>
-            <coneGeometry args={[0.7, 1.2, 7]} />
-            <meshStandardMaterial color="#166534" roughness={0.8} />
-          </mesh>
-        </group>
-      ) : (
-        // Deciduous puff tree
-        <group position={[0, 2.6, 0]}>
-          <mesh position={[0, 0.5, 0]} castShadow>
-            <dodecahedronGeometry args={[1.3, 1]} />
-            <meshStandardMaterial color="#15803d" roughness={0.8} />
-          </mesh>
-          <mesh position={[-0.7, 0.2, 0.4]} castShadow>
-            <dodecahedronGeometry args={[0.9, 1]} />
-            <meshStandardMaterial color="#166534" roughness={0.8} />
-          </mesh>
-          <mesh position={[0.7, 0.3, -0.3]} castShadow>
-            <dodecahedronGeometry args={[0.9, 1]} />
-            <meshStandardMaterial color="#14532d" roughness={0.8} />
-          </mesh>
-        </group>
-      )}
-    </group>
-  )
-}
-
-function Mountain({ position, scale, rotation }) {
-  return (
-    <group position={position} scale={scale} rotation={rotation}>
-      {/* Mountain Body */}
-      <mesh castShadow receiveShadow>
-        <dodecahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color="#576574" roughness={0.9} flatShading />
-      </mesh>
-      {/* Snow Cap Peak */}
-      <mesh position={[0, 0.55, 0]} scale={[0.85, 0.4, 0.85]} castShadow>
-        <dodecahedronGeometry args={[1, 1]} />
-        <meshStandardMaterial color="#f8fafc" roughness={0.6} />
-      </mesh>
-    </group>
-  )
-}
-
-function MountainRange() {
-  return (
-    <group>
-      {MOUNTAINS.map((m, i) => (
-        <Mountain key={i} position={m.position} scale={m.scale} rotation={m.rotation} />
-      ))}
-    </group>
-  )
-}
-
-function FarmComplex() {
-  return (
-    <group position={[150, 0, -200]}>
-      {/* Main Barn */}
-      <mesh position={[0, 5, 0]} castShadow>
-        <boxGeometry args={[20, 10, 30]} />
-        <meshStandardMaterial color="#b91c1c" />
-      </mesh>
-      {/* Roof */}
-      <mesh position={[0, 11, 0]} rotation={[0, 0, Math.PI / 4]} castShadow>
-        <boxGeometry args={[15, 15, 31]} />
-        <meshStandardMaterial color="#7f1d1d" />
-      </mesh>
-      {/* Silo */}
-      <mesh position={[18, 8, 10]} castShadow>
-        <cylinderGeometry args={[4, 4, 16, 16]} />
-        <meshStandardMaterial color="#94a3b8" metalness={0.6} roughness={0.3} />
-      </mesh>
-      <mesh position={[18, 16, 10]} castShadow>
-        <sphereGeometry args={[4, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2]} />
-        <meshStandardMaterial color="#475569" />
-      </mesh>
-    </group>
-  )
-}
-
-export default function Environment({ simplified = false }) {
+export default function Environment({ simplified = false, showBackground = true }) {
   if (simplified) {
     return (
       <>
-        <color attach="background" args={['#bae6fd']} />
-        <ambientLight intensity={1.8} />
+        {showBackground && <color attach="background" args={['#0f172a']} />}
+        <ambientLight intensity={1.5} />
         <Terrain />
         <LandingPad />
+        <group>
+          {OBSTACLES.map((obs, i) => (
+            <mesh key={i} position={obs.position} castShadow receiveShadow>
+              <boxGeometry args={obs.args} />
+              <meshStandardMaterial color={obs.color} roughness={0.7} />
+            </mesh>
+          ))}
+        </group>
       </>
     )
   }
 
   return (
     <>
-      <color attach="background" args={['#bae6fd']} />
-      <fog attach="fog" args={['#bae6fd', 500, 1800]} />
-      <Sky distance={450000} sunPosition={[100, 150, 100]} inclination={0} azimuth={0.25} />
+      {showBackground && <color attach="background" args={['#0f172a']} />}
+      {showBackground && <fog attach="fog" args={['#0f172a', 50, 800]} />}
+      {showBackground && <Sky distance={450000} sunPosition={[0, 50, -100]} inclination={0} azimuth={0.25} turbidity={10} rayleigh={2} mieCoefficient={0.005} />}
       
-      <ambientLight intensity={1.3} />
+      <ambientLight intensity={0.6} />
       <directionalLight 
-        position={[150, 300, 150]} 
-        intensity={2.8} 
+        position={[100, 200, 50]} 
+        intensity={2.5} 
         castShadow 
         shadow-mapSize={[2048, 2048]}
+        shadow-camera-left={-200}
+        shadow-camera-right={200}
+        shadow-camera-top={200}
+        shadow-camera-bottom={-200}
       />
+      <directionalLight position={[-100, 50, -50]} intensity={0.5} color="#10b981" />
       
       <Terrain />
       <LandingPad />
-      <MountainRange />
       
       <group>
-        {/* Render Village Assets (NE) */}
-        {VILLAGE_TREES.map((v, i) => (
-          <Tree key={i} {...v} />
-        ))}
-        <FarmComplex />
-
-        {/* Render Mountain Pine Trees (SE) */}
-        {PINE_TREES.map((p, i) => (
-          <Tree key={i} {...p} />
-        ))}
-
-        {/* Render City Skyscrapers (NW) */}
-        {SKYSCRAPERS.map((b, i) => (
-          <Building key={i} {...b} />
-        ))}
-
-        {/* Render Desert Cacti & Rocks (SW) */}
-        {CACTI.map((c, i) => (
-          <Cactus key={i} {...c} />
-        ))}
-        {DESERT_ROCKS.map((r, i) => (
-          <mesh key={i} position={r.position} scale={r.scale} rotation={r.rotation}>
-            <dodecahedronGeometry args={[1, 0]} />
-            <meshStandardMaterial color="#a16207" roughness={0.9} />
+        {OBSTACLES.map((obs, i) => (
+          <mesh key={i} position={obs.position} castShadow receiveShadow>
+            <boxGeometry args={obs.args} />
+            <meshStandardMaterial color={obs.color} roughness={0.4} metalness={0.3} />
+            {/* Add an edge highlight to make them pop against the dark background */}
+            <lineSegments>
+              <edgesGeometry args={[new THREE.BoxGeometry(...obs.args)]} />
+              <lineBasicMaterial color="#ffffff" opacity={0.2} transparent />
+            </lineSegments>
           </mesh>
         ))}
       </group>

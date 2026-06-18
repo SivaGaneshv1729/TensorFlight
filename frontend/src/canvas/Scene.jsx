@@ -4,6 +4,7 @@ import { View, PerspectiveCamera, Line, Points, PointMaterial } from '@react-thr
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from './Environment'
+import DroneModel from './DroneModel'
 
 function Rain({ isStorming }) {
   const points = useRef()
@@ -47,10 +48,10 @@ function HUDOverlay() {
   const orientation = useTelemetryStore((state) => state.telemetry.drone_state.orientation_deg)
   const gps = useTelemetryStore((state) => state.telemetry.drone_state.gps)
 
+  const { pitch, roll, yaw_heading } = orientation
+  const { latitude, longitude, altitude_relative_m } = gps
+
   useFrame(() => {
-    const { pitch, roll, yaw_heading } = orientation
-    const { latitude, longitude, altitude_relative_m } = gps
-    
     if (!homeRef.current && latitude !== 0 && longitude !== 0) {
       homeRef.current = { lat: latitude, lon: longitude }
     }
@@ -77,7 +78,8 @@ function HUDOverlay() {
 
   return (
     <group ref={groupRef}>
-      <PerspectiveCamera makeDefault position={[0, 0, 0]} fov={70} far={10000} />
+      <PerspectiveCamera makeDefault position={[0, 3, 8]} fov={70} far={10000} />
+      <DroneModel pitch={pitch} roll={roll} yaw={0} /> {/* Local yaw is handled by groupRef */}
     </group>
   )
 }
@@ -143,11 +145,12 @@ export default function Scene() {
   const isStorming = telemetry.ai_analysis?.is_storming ?? false
 
   return (
-    <View className="w-full h-full">
-      <Environment />
+    <>
+      <ambientLight intensity={0.5} />
+      <Environment showBackground={false} />
       <HUDOverlay />
       <HolographicTargetLine />
       <Rain isStorming={isStorming} />
-    </View>
+    </>
   )
 }
