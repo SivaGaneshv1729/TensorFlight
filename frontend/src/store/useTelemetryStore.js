@@ -61,7 +61,7 @@ const useTelemetryStore = create((set) => ({
       alt: currentTelemetry.drone_state.gps.altitude_relative_m,
       wind: currentTelemetry.ai_analysis.wind_speed_mps
     };
-    const newHistory = [...state.history, newEntry].slice(-100);
+    const newHistory = [...state.history, newEntry].slice(-1000);
     
     return { 
       fleet: newFleet, 

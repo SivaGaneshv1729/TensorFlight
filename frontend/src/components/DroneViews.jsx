@@ -1,6 +1,6 @@
 import React, { useRef, useMemo } from 'react'
-import { useFrame } from '@react-three/fiber'
-import { View, PerspectiveCamera } from '@react-three/drei'
+import { useFrame, Canvas } from '@react-three/fiber'
+import { PerspectiveCamera } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from '../canvas/Environment'
@@ -68,31 +68,41 @@ function Viewport({ title, type, orientation, gps }) {
   const isConnected = useTelemetryStore((state) => state.telemetry.is_connected)
 
   return (
-    <div className="w-full aspect-video border-b border-slate-700 relative group pointer-events-none bg-transparent overflow-hidden">
-      
-      {/* 1. Title Badge */}
-      <div className="absolute top-0 left-0 z-50 flex items-center bg-slate-800 border-r border-b border-slate-700 px-2 py-0.5">
-         <span className="text-[8px] font-bold text-white uppercase tracking-widest">
+    <div className="w-full bg-neutral-900 border-b border-neutral-800 relative group pointer-events-none overflow-hidden">
+
+      {/* 1. Clip Label Overlay */}
+      <div className="absolute top-1 left-1 z-50 flex items-center bg-black/60 px-1.5 py-0.5 rounded-sm">
+         <span className="text-[7px] font-bold text-neutral-300 uppercase tracking-widest leading-none">
            {title}
          </span>
       </div>
 
-      {/* 2. Bottom Status Bar */}
-      <div className="absolute bottom-0 left-0 right-0 z-50 px-2 py-0.5 bg-black/60 border-t border-slate-700 flex justify-between items-center">
-         <span className="text-[6px] font-mono text-gray-500 uppercase">CAM_FEED_0{type === 'front' ? '1' : type === 'back' ? '2' : '3'}</span>
-         <div className="flex items-center gap-1">
-            <div className={`w-1 h-1 rounded-full ${isConnected ? 'bg-green-500' : 'bg-red-500'}`} />
-            <span className="text-[6px] font-mono text-white/40 font-bold uppercase">{isConnected ? 'LINK_OK' : 'LINK_LOST'}</span>
-         </div>
+      {/* 2. Top Right Duration */}
+      <div className="absolute top-1 right-1 z-50 px-1.5 py-0.5 bg-black/60 rounded-sm">
+         <span className="text-[7px] font-mono text-emerald-500 font-bold leading-none">00:04:12:00</span>
       </div>
 
-      {/* 3. 3D Viewport Target */}
-      <div className="absolute inset-0 z-0 pointer-events-none">
-        <View className="w-full h-full">
-          <color attach="background" args={['#030508']} />
-          <Environment background={true} />
+      {/* 3. 3D Viewport Target (The "Thumbnail") */}
+      <div className="w-full aspect-video relative z-0 opacity-80 group-hover:opacity-100 transition-opacity">
+        <Canvas className="w-full h-full" gl={{ antialias: true, alpha: true }}>
+          <color attach="background" args={['#000']} />
+          <Environment showBackground={false} simplified />
           <FPVCamera type={type} orientation={orientation} gps={gps} />
-        </View>
+        </Canvas>
+
+        {/* Multicam Icon */}
+        <div className="absolute bottom-1 left-1 z-50 opacity-40">
+           <div className="w-3 h-3 border border-white/50 flex items-center justify-center text-[6px] text-white/50 font-bold">C{type === 'front' ? '1' : type === 'back' ? '2' : '3'}</div>
+        </div>
+      </div>
+
+      {/* 4. Bottom Clip Info Bar */}
+      <div className="h-4 bg-neutral-800 flex items-center justify-between px-2">
+         <div className="flex items-center gap-1.5">
+           <div className={`w-1.5 h-1.5 rounded-full ${isConnected ? 'bg-emerald-500 shadow-[0_0_4px_#10b981]' : 'bg-rose-500'}`} />
+           <span className="text-[7px] font-bold text-neutral-400 uppercase tracking-widest">Live Source</span>
+         </div>
+         <span className="text-[7px] font-mono text-neutral-500">24 fps</span>
       </div>
     </div>
   )
@@ -103,10 +113,10 @@ export default function DroneViews() {
   const gps = useTelemetryStore((state) => state.telemetry.drone_state.gps)
 
   return (
-    <div className="flex flex-col gap-0 border-t border-slate-700 pointer-events-auto">
-      <Viewport title="Nadir_View" type="front" orientation={orientation} gps={gps} />
-      <Viewport title="Rear_View" type="back" orientation={orientation} gps={gps} />
-      <Viewport title="Zenith_View" type="bottom" orientation={orientation} gps={gps} />
+    <div className="flex flex-col gap-0 pointer-events-auto border-b border-emerald-500/40">
+      <Viewport title="Forward View" type="front" orientation={orientation} gps={gps} />
+      <Viewport title="Rear View" type="back" orientation={orientation} gps={gps} />
+      <Viewport title="Nadir View" type="bottom" orientation={orientation} gps={gps} />
     </div>
   )
 }
