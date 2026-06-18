@@ -64,7 +64,7 @@ export default function AIOverlay() {
             <text 
               x="0" y="-23" 
               textAnchor="middle" 
-              className="fill-black font-mono font-black text-[7px]"
+              className="fill-black font-mono tracking-wide font-black text-[7px]"
             >
               {det.type} {(det.confidence * 100).toFixed(0)}%
             </text>

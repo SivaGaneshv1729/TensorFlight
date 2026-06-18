@@ -19,16 +19,16 @@ class Database:
     @classmethod
     async def connect(cls):
         url = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
-        print(f"尝试连接到 MongoDB: {url}")
+        print(f"Trying to connect to MongoDB: {url}")
         try:
             # Set a very short timeout for connection
             cls.client = AsyncIOMotorClient(url, serverSelectionTimeoutMS=2000)
             # Try a simple operation to check connectivity
             await cls.client.admin.command('ping')
             cls.db = cls.client.agrihud_db
-            print("✅ MongoDB connected successfully.")
+            print("SUCCESS: MongoDB connected successfully.")
         except Exception as e:
-            print(f"⚠️ Could not connect to MongoDB: {e}. Running in NO-DATABASE mode.")
+            print(f"WARNING: Could not connect to MongoDB: {e}. Running in NO-DATABASE mode.")
             cls.db = MockDB()
 
     @classmethod

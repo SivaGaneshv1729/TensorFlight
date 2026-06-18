@@ -198,18 +198,18 @@ export default function MapView({ onClose }) {
   const distance = selectedTarget ? getDistance(latitude, longitude, selectedTarget.lat, selectedTarget.lon) : 0;
 
   return (
-    <div className="absolute left-64 right-[400px] top-8 bottom-8 bg-slate-900 border border-slate-700 rounded-lg overflow-hidden shadow-2xl z-50 flex flex-col pointer-events-auto">
-      <div className="flex justify-between items-center p-3 bg-slate-800 border-b border-slate-700 z-[1000]">
+    <div className="absolute left-64 right-[400px] top-8 bottom-8 bg-emerald-950/40 backdrop-blur-xl border border-emerald-500/20 rounded-lg overflow-hidden shadow-2xl z-50 flex flex-col pointer-events-auto">
+      <div className="flex justify-between items-center p-3 bg-emerald-900/40 backdrop-blur-md shadow-inner shadow-emerald-500/10 border-b border-emerald-500/20 z-[1000]">
         <div className="flex items-center gap-2">
-          <Navigation size={14} className="text-blue-400" />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">Fleet_Tactical_Map [Live]</span>
+          <Navigation size={14} className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
+          <span className="text-[10px] font-black text-white uppercase tracking-wider tracking-widest">Fleet_Tactical_Map [Live]</span>
         </div>
         
         <div className="flex gap-2">
-           <button onClick={() => setPlannerMode(!plannerMode)} className={`text-[9px] px-2 py-1 rounded border transition-colors uppercase font-bold ${plannerMode ? 'bg-blue-600 text-white' : 'bg-slate-700 text-slate-400'}`}>AI_Planner</button>
+           <button onClick={() => setPlannerMode(!plannerMode)} className={`text-[9px] px-2 py-1 rounded border transition-colors uppercase tracking-wider font-bold ${plannerMode ? 'bg-cyan-600 shadow-[0_0_10px_rgba(8,145,178,0.6)] text-white' : 'bg-slate-700 text-emerald-200/80'}`}>AI_Planner</button>
            <button onClick={() => setForceCenter(true)} className="text-[9px] bg-slate-700 text-white px-2 py-1 rounded border border-slate-600">Center</button>
            <button onClick={clearWaypoints} className="text-[9px] bg-slate-700 text-white px-2 py-1 rounded border border-slate-600">Reset</button>
-           <button onClick={onClose} className="text-slate-500 hover:text-white ml-2"><X size={16} /></button>
+           <button onClick={onClose} className="text-emerald-300/60 hover:text-white ml-2"><X size={16} /></button>
         </div>
       </div>
 
@@ -257,17 +257,17 @@ export default function MapView({ onClose }) {
         </MapContainer>
 
         {selectedTarget && (
-          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-slate-700 p-3 rounded flex flex-col gap-2 z-[1000] backdrop-blur-md">
-            <span className="text-[9px] font-bold text-blue-400 uppercase">Selected_Target_{activeDroneId}</span>
+          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-emerald-500/20 p-3 rounded flex flex-col gap-2 z-[1000] backdrop-blur-md">
+            <span className="text-[9px] font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] uppercase tracking-wider">Selected_Target_{activeDroneId}</span>
             <div className="flex gap-2">
-              <button onClick={setDestination} className="flex-1 bg-blue-600 text-white font-black text-[9px] py-1.5 rounded uppercase">Set_Destination</button>
-              <button onClick={() => setSelectedTarget(null)} className="px-4 bg-slate-700 text-white font-bold text-[9px] py-1.5 rounded uppercase">Cancel</button>
+              <button onClick={setDestination} className="flex-1 bg-cyan-600 shadow-[0_0_10px_rgba(8,145,178,0.6)] text-white font-black text-[9px] py-1.5 rounded uppercase tracking-wider">Set_Destination</button>
+              <button onClick={() => setSelectedTarget(null)} className="px-4 bg-slate-700 text-white font-bold text-[9px] py-1.5 rounded uppercase tracking-wider">Cancel</button>
             </div>
           </div>
         )}
       </div>
 
-      <div className="bg-slate-900 px-3 py-1.5 border-t border-slate-700 font-mono text-[8px] flex justify-between items-center text-slate-500 z-[1000]">
+      <div className="bg-emerald-950/40 backdrop-blur-xl px-3 py-1.5 border-t border-emerald-500/20 font-mono tracking-wide text-[8px] flex justify-between items-center text-emerald-300/60 z-[1000]">
         <span>Fleet_Pos: {latitude.toFixed(5)}, {longitude.toFixed(5)}</span>
         <div className="flex gap-3">
           {Object.keys(droneColors).map(id => (
