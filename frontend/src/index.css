@@ -2,12 +2,31 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  background-color: #0a0a0a;
-  color: white;
+@layer base {
+  :root {
+    background-color: #022c22;
+    color: #f8fafc;
+  }
+  
+  body {
+    margin: 0;
+    overflow: hidden;
+    background: radial-gradient(circle at center, #064e3b 0%, #022c22 100%);
+  }
 }
 
-body {
-  margin: 0;
-  overflow: hidden;
+/* Custom scrollbar for webkit */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: rgba(2, 44, 34, 0.3);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(16, 185, 129, 0.5);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(16, 185, 129, 0.8);
 }

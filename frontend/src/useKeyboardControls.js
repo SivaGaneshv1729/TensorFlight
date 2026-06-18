@@ -4,6 +4,7 @@ import { sendSocketMessage } from './useWebSocket'
 
 export default function useKeyboardControls() {
   const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
+  const activeDroneId = useTelemetryStore((state) => state.activeDroneId)
   const setActiveCommands = useTelemetryStore((state) => state.setActiveCommands)
 
   useEffect(() => {
@@ -23,6 +24,7 @@ export default function useKeyboardControls() {
       setActiveCommands(activeCommands)
 
       sendSocketMessage({ 
+        target_id: activeDroneId,
         action: 'MANUAL_CONTROL', 
         params: { 
           inputs: activeCommands,
