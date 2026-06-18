@@ -35,7 +35,7 @@ class MAVLinkBridge:
         if self.master:
             try:
                 self.master.close()
-            except:
+            except Exception:
                 pass
         
         print(f"🔗 Connecting to MAVLink SITL at {self.connection_url}...")

@@ -95,6 +95,7 @@ async def telemetry_websocket(websocket: WebSocket):
             try:
                 cmd = json.loads(data)
                 if isinstance(cmd, dict) and "action" in cmd:
+                    print(f"🎮 WS Command: {cmd.get('action')} for {cmd.get('target_id', 'UAV_01')}")
                     await sim_manager.send_command(cmd)
             except Exception:
                 pass

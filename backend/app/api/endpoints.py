@@ -61,7 +61,6 @@ async def send_command(command: DroneCommand):
     print(f"📥 Received Command: {command.action} with params {command.params}")
     
     # Queue for mock_telemetry.py
-    global command_queue
     cmd_dict = command.model_dump()
     command_queue.append(cmd_dict)
     print(f"📝 Command queued. Queue size: {len(command_queue)}")

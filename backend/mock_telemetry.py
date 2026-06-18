@@ -41,7 +41,7 @@ class DroneSimulator:
     def update(self, dt, wind_speed, wind_dir):
         # 1. Battery model
         if self.is_armed:
-            drain = 0.01 + (abs(self.vel_forward) + abs(self.vel_right)) * 50
+            drain = 0.01 + (abs(self.vel_forward) + abs(self.vel_right)) * 0.05
             self.battery -= drain * dt
             if self.battery <= 0:
                 self.battery = 0
@@ -49,43 +49,96 @@ class DroneSimulator:
 
         # 2. Physics & Navigation
         if self.is_armed:
+            # Manual override logic
+            if self.active_inputs:
+                self.target_wp = None
+                self.is_rtl = False
+                
+                f_speed = 10.0
+                c_speed = 4.0
+                y_speed = 90.0
+                
+                self.vel_forward = 0
+                self.vel_right = 0
+                self.vel_alt = 0
+                self.vel_yaw = 0
+                
+                if 'PITCH_FORWARD' in self.active_inputs: self.vel_forward = f_speed
+                if 'PITCH_BACK' in self.active_inputs: self.vel_forward = -f_speed
+                if 'ROLL_LEFT' in self.active_inputs: self.vel_right = -f_speed
+                if 'ROLL_RIGHT' in self.active_inputs: self.vel_right = f_speed
+                if 'ALT_UP' in self.active_inputs: self.vel_alt = c_speed
+                if 'ALT_DOWN' in self.active_inputs: self.vel_alt = -c_speed
+                if 'YAW_LEFT' in self.active_inputs: self.vel_yaw = -y_speed
+                if 'YAW_RIGHT' in self.active_inputs: self.vel_yaw = y_speed
+            
             # Simplistic RTL/Waypoint logic
-            if self.is_rtl:
+            elif self.is_rtl:
                 self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 15.0}
 
-            if self.target_wp:
+            if self.target_wp and not self.active_inputs:
                 dist_lat = (self.target_wp['lat'] - self.lat) * 111319
                 dist_lon = (self.target_wp['lon'] - self.lon) * 111319 * math.cos(math.radians(self.lat))
                 dist = math.sqrt(dist_lat**2 + dist_lon**2)
                 
                 if dist < 1.0 and abs(self.alt - self.target_wp.get('alt', 15)) < 1.0:
                     if self.is_rtl:
-                        self.alt -= 0.5 * dt
+                        self.vel_alt = -0.5
                         if self.alt <= 0.1:
                             self.is_armed = False
                             self.is_rtl = False
+                            self.vel_alt = 0
                     elif self.mission_waypoints:
                         self.target_wp = self.mission_waypoints.pop(0)
                     else:
                         self.target_wp = None
+                        self.vel_forward = 0
+                        self.vel_right = 0
+                        self.vel_alt = 0
                 else:
                     # Move towards target
                     angle = math.atan2(dist_lon, dist_lat)
                     self.vel_forward = 5.0 * math.cos(angle)
                     self.vel_right = 5.0 * math.sin(angle)
-                    self.heading = math.degrees(angle) % 360
-                    if self.alt < self.target_wp.get('alt', 15): self.alt += 1.0 * dt
-                    elif self.alt > self.target_wp.get('alt', 15): self.alt -= 1.0 * dt
+                    # Smoothly rotate heading towards target
+                    target_heading = math.degrees(angle) % 360
+                    self.vel_yaw = (target_heading - self.heading + 180) % 360 - 180
+                    if self.alt < self.target_wp.get('alt', 15): self.vel_alt = 1.0
+                    elif self.alt > self.target_wp.get('alt', 15): self.vel_alt = -1.0
+                    else: self.vel_alt = 0
 
             # Apply wind effect
             wind_rad = math.radians(wind_dir)
             self.lat += (wind_speed * 0.000001 * math.cos(wind_rad)) * dt
             self.lon += (wind_speed * 0.000001 * math.sin(wind_rad)) * dt
 
-            # Apply velocity
-            self.lat += (self.vel_forward * 0.000009) * dt
-            self.lon += (self.vel_right * 0.000009) * dt
+            # Apply velocity to position
+            # We need to rotate forward/right velocity by the current heading
+            heading_rad = math.radians(self.heading)
+            cos_h = math.cos(heading_rad)
+            sin_h = math.sin(heading_rad)
+            
+            world_vel_lat = self.vel_forward * cos_h - self.vel_right * sin_h
+            world_vel_lon = self.vel_forward * sin_h + self.vel_right * cos_h
+            
+            self.lat += (world_vel_lat * 0.000009) * dt
+            self.lon += (world_vel_lon * 0.000009) * dt
+            self.alt += self.vel_alt * dt
+            self.heading = (self.heading + self.vel_yaw * dt) % 360
+
+            # Visual tilt interpolation
+            target_pitch = (self.vel_forward / 10.0) * 20.0
+            target_roll = (self.vel_right / 10.0) * 20.0
+            self.pitch += (target_pitch - self.pitch) * 5 * dt
+            self.roll += (target_roll - self.roll) * 5 * dt
+
         else:
+            self.vel_forward = 0
+            self.vel_right = 0
+            self.vel_alt = 0
+            self.vel_yaw = 0
+            self.pitch *= 0.9
+            self.roll *= 0.9
             if self.alt > 0: self.alt -= 2.0 * dt
             if self.alt < 0: self.alt = 0
 
@@ -143,9 +196,12 @@ async def simulate_fleet():
                             for d in drones:
                                 if d.id == target_id:
                                     if action == "ARM": d.is_armed = True; d.battery = 100
+                                    if action == "DISARM": d.is_armed = False
                                     if action == "TAKEOFF": d.target_wp = {"lat": d.lat, "lon": d.lon, "alt": 10.0}
                                     if action == "RTL": d.is_rtl = True
                                     if action == "GOTO_WAYPOINTS": d.mission_waypoints = cmd.get("params", {}).get("waypoints", [])
+                                    if action == "MANUAL_CONTROL":
+                                        d.active_inputs = cmd.get("params", {}).get("inputs", [])
                     except: pass
 
                 asyncio.create_task(handle_commands())
