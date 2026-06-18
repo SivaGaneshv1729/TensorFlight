@@ -49,6 +49,12 @@ class DroneSimulator:
 
         # 2. Physics & Navigation
         if self.is_armed:
+            # Default to zero velocity each frame (prevent infinite coasting)
+            self.vel_forward = 0
+            self.vel_right = 0
+            self.vel_alt = 0
+            self.vel_yaw = 0
+            
             # Manual override logic
             if self.active_inputs:
                 self.target_wp = None
@@ -57,11 +63,6 @@ class DroneSimulator:
                 f_speed = 10.0
                 c_speed = 4.0
                 y_speed = 90.0
-                
-                self.vel_forward = 0
-                self.vel_right = 0
-                self.vel_alt = 0
-                self.vel_yaw = 0
                 
                 if 'PITCH_FORWARD' in self.active_inputs: self.vel_forward = f_speed
                 if 'PITCH_BACK' in self.active_inputs: self.vel_forward = -f_speed
@@ -92,9 +93,6 @@ class DroneSimulator:
                         self.target_wp = self.mission_waypoints.pop(0)
                     else:
                         self.target_wp = None
-                        self.vel_forward = 0
-                        self.vel_right = 0
-                        self.vel_alt = 0
                 else:
                     # Move towards target
                     angle = math.atan2(dist_lon, dist_lat)
@@ -107,10 +105,11 @@ class DroneSimulator:
                     elif self.alt > self.target_wp.get('alt', 15): self.vel_alt = -1.0
                     else: self.vel_alt = 0
 
-            # Apply wind effect
-            wind_rad = math.radians(wind_dir)
-            self.lat += (wind_speed * 0.000001 * math.cos(wind_rad)) * dt
-            self.lon += (wind_speed * 0.000001 * math.sin(wind_rad)) * dt
+            # Apply wind effect ONLY if in the air
+            if self.alt > 0.5:
+                wind_rad = math.radians(wind_dir)
+                self.lat += (wind_speed * 0.000001 * math.cos(wind_rad)) * dt
+                self.lon += (wind_speed * 0.000001 * math.sin(wind_rad)) * dt
 
             # Apply velocity to position
             # We need to rotate forward/right velocity by the current heading
