@@ -194,6 +194,7 @@ async def simulate_fleet():
                             action = cmd.get("action")
                             for d in drones:
                                 if d.id == target_id:
+                                    print(f"[{d.id}] Received CMD: {action}")
                                     if action == "ARM": d.is_armed = True; d.battery = 100
                                     if action == "DISARM": d.is_armed = False
                                     if action == "TAKEOFF": d.target_wp = {"lat": d.lat, "lon": d.lon, "alt": 10.0}
