@@ -254,14 +254,39 @@ export default function MapView({ onClose }) {
           {selectedTarget && isActive && (
             <Polyline positions={[dronePos, [selectedTarget.lat, selectedTarget.lon]]} color="#fbbf24" dashArray="4, 4" weight={2} />
           )}
+
+          {/* AI Planner Rendering */}
+          {plannerMode && polygon.length > 0 && (
+            <Polygon positions={polygon.map(p => [p.lat, p.lon])} color="#06b6d4" fillColor="#06b6d4" fillOpacity={0.2} weight={2} />
+          )}
+          {plannerMode && aiPath.length > 0 && (
+            <Polyline positions={aiPath.map(p => [p.lat, p.lon])} color="#a855f7" dashArray="5, 5" weight={3} />
+          )}
+
         </MapContainer>
 
-        {selectedTarget && (
+        {/* Selected Target UI */}
+        {selectedTarget && !plannerMode && (
           <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-emerald-500/20 p-3 rounded flex flex-col gap-2 z-[1000] backdrop-blur-md">
             <span className="text-[9px] font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] uppercase tracking-wider">Selected_Target_{activeDroneId}</span>
             <div className="flex gap-2">
               <button onClick={setDestination} className="flex-1 bg-cyan-600 shadow-[0_0_10px_rgba(8,145,178,0.6)] text-white font-black text-[9px] py-1.5 rounded uppercase tracking-wider">Set_Destination</button>
               <button onClick={() => setSelectedTarget(null)} className="px-4 bg-slate-700 text-white font-bold text-[9px] py-1.5 rounded uppercase tracking-wider">Cancel</button>
+            </div>
+          </div>
+        )}
+
+        {/* AI Planner Controls UI */}
+        {plannerMode && (
+          <div className="absolute bottom-4 left-4 right-4 bg-slate-900/90 border border-cyan-500/30 p-3 rounded flex flex-col gap-2 z-[1000] backdrop-blur-md">
+            <div className="flex justify-between items-center">
+              <span className="text-[9px] font-bold text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)] uppercase tracking-wider">AI_Mission_Planner</span>
+              <span className="text-[8px] text-white/60">Draw boundary on map ({polygon.length} pts)</span>
+            </div>
+            <div className="flex gap-2">
+              <button onClick={generateLawnmowerPath} disabled={polygon.length < 3} className="flex-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 text-white font-black text-[9px] py-1.5 rounded uppercase tracking-wider transition-colors">1. Generate_Path</button>
+              <button onClick={uploadAiPath} disabled={aiPath.length === 0} className="flex-1 bg-cyan-600 hover:bg-cyan-500 disabled:opacity-50 text-white font-black text-[9px] py-1.5 rounded uppercase tracking-wider transition-colors shadow-[0_0_10px_rgba(8,145,178,0.4)]">2. Upload_Mission</button>
+              <button onClick={() => { setPolygon([]); setAiPath([]) }} className="px-4 bg-slate-700 hover:bg-slate-600 text-white font-bold text-[9px] py-1.5 rounded uppercase tracking-wider">Clear</button>
             </div>
           </div>
         )}
