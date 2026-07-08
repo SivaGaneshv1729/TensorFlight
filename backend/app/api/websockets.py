@@ -3,9 +3,9 @@ import json
 import time
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 from app.schemas.telemetry import TelemetryData
-# Assuming mav_bridge is accessible from a shared location, e.g., app.core
 from app.core.mavlink import mav_bridge
 from app.core.manager import sim_manager
+from app.ai.analysis_engine import analysis_engine
 
 router = APIRouter()
 
@@ -56,10 +56,18 @@ broadcaster = TelemetryBroadcaster()
 fleet_state = {}
 
 async def broadcast_telemetry_loop(broadcaster: TelemetryBroadcaster, bridge: 'MAVLinkBridge'):
-    """Periodically fetches the latest data and broadcasts it."""
+    """Periodically fetches the latest data and broadcasts it, injecting real AI analysis."""
     while True:
         if fleet_state:
-            payload = {"type": "FLEET_UPDATE", "drones": fleet_state}
+            # Inject real AI report into every drone's ai_analysis field
+            ai_dict = analysis_engine.get_latest_report().to_ai_analysis_dict()
+            enriched_fleet = {}
+            for drone_id, drone_data in fleet_state.items():
+                enriched = dict(drone_data)
+                enriched["ai_analysis"] = ai_dict  # Real AI replaces mock sin() values
+                enriched_fleet[drone_id] = enriched
+
+            payload = {"type": "FLEET_UPDATE", "drones": enriched_fleet}
             json_payload = json.dumps(payload)
             for connection in list(broadcaster.active_connections):
                 try:
@@ -70,7 +78,7 @@ async def broadcast_telemetry_loop(broadcaster: TelemetryBroadcaster, bridge: 'M
             data = await bridge.get_latest_data()
             if data:
                 await broadcaster.broadcast(data)
-        await asyncio.sleep(1 / 20) # Broadcast at 20Hz
+        await asyncio.sleep(1 / 10)  # 10Hz broadcast
 
 async def persistence_loop(bridge: 'MAVLinkBridge'):
     """Saves telemetry data to MongoDB at 1Hz."""
