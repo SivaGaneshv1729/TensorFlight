@@ -10,6 +10,7 @@ import ControllerPanel from './components/ControllerPanel'
 import DroneViews from './components/DroneViews'
 import Scene from './canvas/Scene'
 import AIOverlay from './components/AIOverlay'
+import { VIEW_CONFIGS } from './components/ViewComponents'
 
 // PERF: Lazy-load heavy MapView+Leaflet bundle only when Map tab is active
 const MapView = lazy(() => import('./components/MapView'))
@@ -62,6 +63,7 @@ function App() {
   useWebSocket()
   useKeyboardControls()
   const [activeTab, setActiveTab] = useState('Controler')
+  const mainViewId = useTelemetryStore(s => s.mainViewId)
   
   return (
     <div ref={container} className="h-screen w-screen bg-[#282a2e] flex flex-col font-sans text-gray-200 overflow-hidden">
@@ -80,22 +82,7 @@ function App() {
 
             {/* Top Center (Main Viewport) */}
             <div className="col-span-7 row-span-7 bg-[#1c1d21] rounded-lg relative overflow-hidden flex flex-col shadow-lg border border-gray-700/30 min-h-0">
-               <div className="absolute inset-0 z-0">
-                 <VideoContainer />
-               </div>
-               <div className="absolute inset-0 z-10 pointer-events-none">
-                 <Canvas
-                   shadows={false}              /* PERF: Shadows off for main viewport (Environment handles it) */
-                   dpr={[1, 1.5]}              /* PERF: Cap at 1.5× instead of 2× */
-                   gl={{ antialias: true, logarithmicDepthBuffer: true, alpha: true, powerPreference: 'high-performance' }}
-                 >
-                   <Scene />
-                 </Canvas>
-               </div>
-               <div className="absolute inset-0 z-20 pointer-events-none">
-                 <AIOverlay />
-                 <HUD />
-               </div>
+               {React.createElement(VIEW_CONFIGS[mainViewId].Component)}
             </div>
 
             {/* Top Right (Sidebar - Master Controls) */}

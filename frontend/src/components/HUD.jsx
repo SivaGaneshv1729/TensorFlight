@@ -1,10 +1,34 @@
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import useTelemetryStore from '../store/useTelemetryStore'
 
 export default function HUD() {
   const telemetry = useTelemetryStore((state) => state.telemetry)
   const orientation = telemetry?.drone_state?.orientation_deg ?? { pitch: 0, roll: 0, yaw_heading: 0 }
   const heading = orientation.yaw_heading
+
+  const [fps, setFps] = useState(59.9)
+  const [timecode, setTimecode] = useState(0)
+
+  useEffect(() => {
+    const fpsInterval = setInterval(() => {
+      setFps(58 + Math.random() * 2)
+    }, 500)
+    
+    const timeInterval = setInterval(() => {
+      setTimecode(t => t + 1)
+    }, 1000)
+
+    return () => {
+      clearInterval(fpsInterval)
+      clearInterval(timeInterval)
+    }
+  }, [])
+
+  const formatTime = (seconds) => {
+    const m = Math.floor(seconds / 60).toString().padStart(2, '0')
+    const s = (seconds % 60).toString().padStart(2, '0')
+    return `${m}:${s}`
+  }
 
   return (
     <div className="absolute inset-0 p-4 font-sans pointer-events-none flex flex-col justify-between z-20">
@@ -17,7 +41,7 @@ export default function HUD() {
                <span className="text-white text-xs font-bold uppercase tracking-wider">HDR</span>
             </div>
             <div className="text-agri-primary font-bold text-sm">
-               4K <span className="text-white font-normal">- 19.67 FPS</span>
+               4K <span className="text-white font-normal">- {fps.toFixed(2)} FPS</span>
             </div>
          </div>
 
@@ -26,8 +50,8 @@ export default function HUD() {
                <div className="w-1 h-3 bg-white/80" />
             </div>
             <div className="flex items-center gap-2">
-               <div className="w-2 h-2 rounded-full bg-red-500" />
-               <span className="text-white text-xs font-mono">02:11</span>
+               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+               <span className="text-white text-xs font-mono">{formatTime(timecode)}</span>
             </div>
          </div>
       </div>

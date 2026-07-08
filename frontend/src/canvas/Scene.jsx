@@ -87,25 +87,31 @@ const HolographicTargetLine = memo(function HolographicTargetLine() {
   const altitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.altitude_relative_m)
   const homeRef = useRef(null)
 
-  if (!isArmed || !targetWp) return null
-  if (latitude === 0 && longitude === 0) return null
-  if (!homeRef.current) homeRef.current = { lat: latitude, lon: longitude }
+  const lineData = useMemo(() => {
+    if (!isArmed || !targetWp || (latitude === 0 && longitude === 0)) return null
+    if (!homeRef.current) homeRef.current = { lat: latitude, lon: longitude }
 
-  const droneX = (longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
-  const droneZ = -(latitude - homeRef.current.lat) * 111319
-  const tgtX = (targetWp.longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
-  const tgtZ = -(targetWp.latitude - homeRef.current.lat) * 111319
-  const tgtY = targetWp.altitude_relative_m ?? 15
+    const droneX = (longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
+    const droneZ = -(latitude - homeRef.current.lat) * 111319
+    const tgtX = (targetWp.longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
+    const tgtZ = -(targetWp.latitude - homeRef.current.lat) * 111319
+    const tgtY = targetWp.altitude_relative_m ?? 15
 
-  const points = useMemo(() => [
-    [droneX, altitude || 0, droneZ],
-    [tgtX, tgtY, tgtZ]
-  ], [droneX, droneZ, tgtX, tgtZ, tgtY, altitude])
+    return {
+      points: [
+        [droneX, altitude || 0, droneZ],
+        [tgtX, tgtY, tgtZ]
+      ],
+      tgtPos: [tgtX, tgtY, tgtZ]
+    }
+  }, [isArmed, targetWp, latitude, longitude, altitude])
+
+  if (!lineData) return null
 
   return (
     <group>
-      <Line points={points} color="#fbbf24" lineWidth={1.5} transparent opacity={0.6} dashed={true} dashSize={1} gapSize={0.5} />
-      <mesh position={[tgtX, tgtY, tgtZ]}>
+      <Line points={lineData.points} color="#fbbf24" lineWidth={1.5} transparent opacity={0.6} dashed={true} dashSize={1} gapSize={0.5} />
+      <mesh position={lineData.tgtPos}>
         <octahedronGeometry args={[0.6]} />
         <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.5} roughness={0.2} metalness={0.8} />
       </mesh>
@@ -119,7 +125,7 @@ export default function Scene() {
   return (
     <>
       <ambientLight intensity={0.5} />
-      <Environment showBackground={false} />
+      <Environment showBackground={true} />
       <HUDOverlay />
       <HolographicTargetLine />
       <Rain isStorming={isStorming} />
