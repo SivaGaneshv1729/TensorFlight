@@ -61,10 +61,10 @@ class DroneSimulator:
                 self.target_wp = None
                 self.is_rtl = False
                 
-                # These represent target tilt angles (degrees)
-                max_tilt = 35.0
-                c_speed = 4.0
-                y_speed = 90.0
+                # Smoother manual controls
+                max_tilt = 22.0     # Reduced from 35 for smoother flying
+                c_speed = 3.0       # Climb speed
+                y_speed = 60.0      # Yaw speed
                 
                 if 'PITCH_FORWARD' in self.active_inputs: target_pitch = max_tilt
                 if 'PITCH_BACK' in self.active_inputs: target_pitch = -max_tilt
@@ -96,29 +96,37 @@ class DroneSimulator:
                     else:
                         self.target_wp = None
                 else:
-                    # PID-like navigation: Tilt towards target
+                    # AI Navigation: Convert world distance vector to local space for tilt
                     angle = math.atan2(dist_lon, dist_lat)
-                    # Convert target world velocity to local tilt
-                    target_v_fwd = 5.0 * math.cos(angle)
-                    target_v_rgt = 5.0 * math.sin(angle)
-                    
-                    target_pitch = (target_v_fwd / 10.0) * 35.0
-                    target_roll = (target_v_rgt / 10.0) * 35.0
-                    
                     target_heading = math.degrees(angle) % 360
-                    target_yaw_vel = (target_heading - self.heading + 180) % 360 - 180
+                    heading_err = (target_heading - self.heading + 180) % 360 - 180
                     
-                    if self.alt < self.target_wp.get('alt', 15): target_alt_vel = 1.0
-                    elif self.alt > self.target_wp.get('alt', 15): target_alt_vel = -1.0
+                    # Smooth yaw towards target
+                    target_yaw_vel = heading_err * 1.5
+                    target_yaw_vel = max(-60.0, min(60.0, target_yaw_vel))
+                    
+                    heading_rad = math.radians(self.heading)
+                    cos_h = math.cos(heading_rad)
+                    sin_h = math.sin(heading_rad)
+                    
+                    # Project distance onto drone's local forward/right axes
+                    local_fwd_err = dist_lat * cos_h + dist_lon * sin_h
+                    local_rgt_err = dist_lon * cos_h - dist_lat * sin_h
+                    
+                    # Map distance to tilt (PID proportional)
+                    target_pitch = max(-20.0, min(20.0, local_fwd_err * 1.2))
+                    target_roll = max(-20.0, min(20.0, local_rgt_err * 1.2))
+                    
+                    if self.alt < self.target_wp.get('alt', 15): target_alt_vel = 2.0
+                    elif self.alt > self.target_wp.get('alt', 15): target_alt_vel = -2.0
 
             # 1. Update orientation (tilt interpolation - snappier for GPS hold)
-            self.pitch += (target_pitch - self.pitch) * 6.0 * dt
-            self.roll += (target_roll - self.roll) * 6.0 * dt
-            self.vel_yaw += (target_yaw_vel - self.vel_yaw) * 6.0 * dt
+            self.pitch += (target_pitch - self.pitch) * 4.0 * dt
+            self.roll += (target_roll - self.roll) * 4.0 * dt
+            self.vel_yaw += (target_yaw_vel - self.vel_yaw) * 4.0 * dt
             self.heading = (self.heading + self.vel_yaw * dt) % 360
 
             # 2. Calculate acceleration based on tilt (Gravity = 9.81)
-            # A drone pitches forward by tilting its thrust vector.
             accel_forward = math.sin(math.radians(self.pitch)) * 9.81
             accel_right = math.sin(math.radians(self.roll)) * 9.81
             
@@ -127,10 +135,10 @@ class DroneSimulator:
             self.vel_right += accel_right * dt
             self.vel_alt += (target_alt_vel - self.vel_alt) * 3.0 * dt
             
-            # 4. Apply Drag (Heavy drag for 'GPS Position Hold' feel)
-            drag_coeff = 4.0
-            self.vel_forward *= (1.0 - drag_coeff * dt)
-            self.vel_right *= (1.0 - drag_coeff * dt)
+            # 4. Apply Drag (Use exponential decay for numerical stability)
+            drag_coeff = 2.5 # Reduced drag for slightly driftier, more natural feel
+            self.vel_forward *= math.exp(-drag_coeff * dt)
+            self.vel_right *= math.exp(-drag_coeff * dt)
 
             # 5. Apply wind effect (Turbulent drift)
             wind_drift_lat = 0
@@ -157,12 +165,12 @@ class DroneSimulator:
             self.alt += self.vel_alt * dt
 
         else:
-            # Unarmed state - decay all velocities and tilts to zero
-            self.vel_forward *= (1.0 - 1.0 * dt)
-            self.vel_right *= (1.0 - 1.0 * dt)
-            self.vel_yaw *= (1.0 - 2.0 * dt)
-            self.pitch *= (1.0 - 4.0 * dt)
-            self.roll *= (1.0 - 4.0 * dt)
+            # Unarmed state - decay all velocities and tilts to zero securely
+            self.vel_forward *= math.exp(-2.0 * dt)
+            self.vel_right *= math.exp(-2.0 * dt)
+            self.vel_yaw *= math.exp(-3.0 * dt)
+            self.pitch *= math.exp(-5.0 * dt)
+            self.roll *= math.exp(-5.0 * dt)
             
             if self.alt > 0: 
                 self.alt -= 2.0 * dt
