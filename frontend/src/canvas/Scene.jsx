@@ -1,33 +1,32 @@
-import React, { useRef, useMemo } from 'react'
+import React, { useRef, useMemo, memo } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { View, PerspectiveCamera, Line, Points, PointMaterial } from '@react-three/drei'
+import { PerspectiveCamera, Line, Points, PointMaterial } from '@react-three/drei'
 import useTelemetryStore from '../store/useTelemetryStore'
 import * as THREE from 'three'
 import Environment from './Environment'
 import DroneModel from './DroneModel'
 
+// PERF: 600 → 400 particles; skip update when not storming
+const RAIN_COUNT = 400
+
 function Rain({ isStorming }) {
   const points = useRef()
-  const count = 2000
-  
   const positions = useMemo(() => {
-    const pos = new Float32Array(count * 3)
-    for (let i = 0; i < count; i++) {
-      pos[i * 3] = (Math.random() - 0.5) * 200
-      pos[i * 3 + 1] = Math.random() * 100
-      pos[i * 3 + 2] = (Math.random() - 0.5) * 200
+    const pos = new Float32Array(RAIN_COUNT * 3)
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      pos[i * 3] = (Math.random() - 0.5) * 120
+      pos[i * 3 + 1] = Math.random() * 60
+      pos[i * 3 + 2] = (Math.random() - 0.5) * 120
     }
     return pos
-  }, [count])
+  }, [])
 
   useFrame((state, delta) => {
     if (!isStorming || !points.current) return
     const array = points.current.geometry.attributes.position.array
-    for (let i = 0; i < count; i++) {
-      array[i * 3 + 1] -= 40 * delta
-      if (array[i * 3 + 1] < 0) {
-        array[i * 3 + 1] = 100
-      }
+    for (let i = 0; i < RAIN_COUNT; i++) {
+      array[i * 3 + 1] -= 30 * delta
+      if (array[i * 3 + 1] < 0) array[i * 3 + 1] = 60
     }
     points.current.geometry.attributes.position.needsUpdate = true
   })
@@ -36,113 +35,86 @@ function Rain({ isStorming }) {
 
   return (
     <Points ref={points} positions={positions}>
-      <PointMaterial transparent color="#60a5fa" size={0.15} sizeAttenuation={true} depthWrite={false} opacity={0.4} />
+      <PointMaterial transparent color="#60a5fa" size={0.12} sizeAttenuation depthWrite={false} opacity={0.35} />
     </Points>
   )
 }
 
-function HUDOverlay() {
+// PERF: memo prevents re-render when telemetry reference changes but values don't matter
+const HUDOverlay = memo(function HUDOverlay() {
   const groupRef = useRef()
   const homeRef = useRef(null)
 
-  const orientation = useTelemetryStore((state) => state.telemetry.drone_state.orientation_deg)
-  const gps = useTelemetryStore((state) => state.telemetry.drone_state.gps)
-
-  const { pitch, roll, yaw_heading } = orientation
-  const { latitude, longitude, altitude_relative_m } = gps
+  // PERF: Use shallow selectors — only the values needed
+  const pitch = useTelemetryStore((s) => s.telemetry.drone_state.orientation_deg.pitch)
+  const roll = useTelemetryStore((s) => s.telemetry.drone_state.orientation_deg.roll)
+  const yaw_heading = useTelemetryStore((s) => s.telemetry.drone_state.orientation_deg.yaw_heading)
+  const latitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.latitude)
+  const longitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.longitude)
+  const altitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.altitude_relative_m)
 
   useFrame(() => {
+    if (!groupRef.current) return
     if (!homeRef.current && latitude !== 0 && longitude !== 0) {
       homeRef.current = { lat: latitude, lon: longitude }
     }
-
-    const lerpFactor = 0.1
-    const gimbalFactor = 0.3
-    
-    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, THREE.MathUtils.degToRad(pitch * gimbalFactor), lerpFactor)
-    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, THREE.MathUtils.degToRad(-yaw_heading), lerpFactor)
-    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, THREE.MathUtils.degToRad(-roll * gimbalFactor), lerpFactor)
-    
-    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, (altitude_relative_m || 0) + 1.8, lerpFactor)
-
+    const lp = 0.08 // Slightly slower lerp to reduce snap-jitter
+    groupRef.current.rotation.x = THREE.MathUtils.lerp(groupRef.current.rotation.x, THREE.MathUtils.degToRad(pitch * 0.25), lp)
+    groupRef.current.rotation.y = THREE.MathUtils.lerp(groupRef.current.rotation.y, THREE.MathUtils.degToRad(-yaw_heading), lp)
+    groupRef.current.rotation.z = THREE.MathUtils.lerp(groupRef.current.rotation.z, THREE.MathUtils.degToRad(-roll * 0.25), lp)
+    groupRef.current.position.y = THREE.MathUtils.lerp(groupRef.current.position.y, (altitude || 0) + 1.8, lp)
     if (homeRef.current) {
-      const deltaLat = latitude - homeRef.current.lat
-      const deltaLon = longitude - homeRef.current.lon
-      const posX = deltaLon * 111319 * Math.cos(latitude * Math.PI / 180)
-      const posZ = -deltaLat * 111319
-      
-      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, posX, lerpFactor)
-      groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, posZ, lerpFactor)
+      const posX = (longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
+      const posZ = -(latitude - homeRef.current.lat) * 111319
+      groupRef.current.position.x = THREE.MathUtils.lerp(groupRef.current.position.x, posX, lp)
+      groupRef.current.position.z = THREE.MathUtils.lerp(groupRef.current.position.z, posZ, lp)
     }
   })
 
   return (
     <group ref={groupRef}>
-      <PerspectiveCamera makeDefault position={[0, 3, 8]} fov={70} far={10000} />
-      <DroneModel pitch={pitch} roll={roll} yaw={0} /> {/* Local yaw is handled by groupRef */}
+      <PerspectiveCamera makeDefault position={[0, 3, 8]} fov={70} far={5000} />
+      <DroneModel pitch={pitch} roll={roll} yaw={0} />
     </group>
   )
-}
+})
 
-function HolographicTargetLine() {
-  const targetWp = useTelemetryStore((state) => state.telemetry.navigation_target.next_waypoint_gps)
-  const distanceToWp = useTelemetryStore((state) => state.telemetry.navigation_target.distance_to_wp_m)
-  const isArmed = useTelemetryStore((state) => state.telemetry.is_active)
-  const gps = useTelemetryStore((state) => state.telemetry.drone_state.gps)
-  
+const HolographicTargetLine = memo(function HolographicTargetLine() {
+  const targetWp = useTelemetryStore((s) => s.telemetry.navigation_target.next_waypoint_gps)
+  const isArmed = useTelemetryStore((s) => s.telemetry.is_active)
+  const latitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.latitude)
+  const longitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.longitude)
+  const altitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.altitude_relative_m)
   const homeRef = useRef(null)
 
-  if (!isArmed || !targetWp || distanceToWp < 1.0) return null
-
-  const { latitude, longitude, altitude_relative_m } = gps
+  if (!isArmed || !targetWp) return null
   if (latitude === 0 && longitude === 0) return null
+  if (!homeRef.current) homeRef.current = { lat: latitude, lon: longitude }
 
-  if (!homeRef.current) {
-    homeRef.current = { lat: latitude, lon: longitude }
-  }
+  const droneX = (longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
+  const droneZ = -(latitude - homeRef.current.lat) * 111319
+  const tgtX = (targetWp.longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
+  const tgtZ = -(targetWp.latitude - homeRef.current.lat) * 111319
+  const tgtY = targetWp.altitude_relative_m ?? 15
 
-  // Calculate current drone position
-  const deltaLat = latitude - homeRef.current.lat
-  const deltaLon = longitude - homeRef.current.lon
-  const droneX = deltaLon * 111319 * Math.cos(latitude * Math.PI / 180)
-  const droneY = altitude_relative_m || 0
-  const droneZ = -deltaLat * 111319
-
-  // Calculate target position
-  const targetDeltaLat = targetWp.latitude - homeRef.current.lat
-  const targetDeltaLon = targetWp.longitude - homeRef.current.lon
-  const targetX = targetDeltaLon * 111319 * Math.cos(latitude * Math.PI / 180)
-  const targetY = targetWp.altitude_relative_m !== undefined ? targetWp.altitude_relative_m : 15.0
-  const targetZ = -targetDeltaLat * 111319
-
-  const points = [
-    [droneX, droneY, droneZ],
-    [targetX, targetY, targetZ]
-  ]
+  const points = useMemo(() => [
+    [droneX, altitude || 0, droneZ],
+    [tgtX, tgtY, tgtZ]
+  ], [droneX, droneZ, tgtX, tgtZ, tgtY, altitude])
 
   return (
     <group>
-      {/* Holographic Laser Path */}
-      <Line 
-        points={points} 
-        color="#39FF14" 
-        lineWidth={3} 
-        transparent
-        opacity={0.8}
-      />
-      
-      {/* Target Marker Beacon */}
-      <mesh position={[targetX, targetY, targetZ]}>
-        <cylinderGeometry args={[0, 1.2, 3.5, 16]} />
-        <meshBasicMaterial color="#39FF14" wireframe transparent opacity={0.6} />
+      <Line points={points} color="#39FF14" lineWidth={2} transparent opacity={0.7} />
+      <mesh position={[tgtX, tgtY, tgtZ]}>
+        <cylinderGeometry args={[0, 1.0, 2.5, 8]} /> {/* PERF: 8 segments vs 16 */}
+        <meshBasicMaterial color="#39FF14" wireframe transparent opacity={0.5} />
       </mesh>
     </group>
   )
-}
+})
 
 export default function Scene() {
-  const telemetry = useTelemetryStore((state) => state.telemetry)
-  const isStorming = telemetry.ai_analysis?.is_storming ?? false
+  const isStorming = useTelemetryStore((s) => s.telemetry.ai_analysis?.is_storming ?? false)
 
   return (
     <>
