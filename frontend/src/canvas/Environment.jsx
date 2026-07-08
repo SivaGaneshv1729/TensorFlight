@@ -14,10 +14,11 @@ for (let i = 0; i < 200; i++) {
   const x = (seedRandom(i, 1) - 0.5) * 600;
   const z = (seedRandom(i, 2) - 0.5) * 600;
   if (Math.abs(x) < 40 && Math.abs(z) < 40) continue;
-  const isTower = seedRandom(i, 3) > 0.85;
-  const width = 4 + seedRandom(i, 4) * 10;
-  const height = isTower ? 30 + seedRandom(i, 5) * 60 : 8 + seedRandom(i, 6) * 15;
-  const depth = 4 + seedRandom(i, 7) * 10;
+  // Generate Barns and Silos
+  const isSilo = seedRandom(i, 3) > 0.7;
+  const width = isSilo ? 12 : 30 + seedRandom(i, 4) * 20;
+  const height = isSilo ? 40 + seedRandom(i, 5) * 30 : 12 + seedRandom(i, 6) * 10;
+  const depth = isSilo ? 12 : 20 + seedRandom(i, 7) * 15;
   OBSTACLES.push({ position: [x, height / 2 - 0.6, z], args: [width, height, depth] })
 }
 
@@ -47,7 +48,8 @@ function ObstacleInstances() {
   return (
     <instancedMesh ref={meshRef} args={[null, null, OBSTACLES.length]}>
       <boxGeometry args={[1, 1, 1]} />
-      <meshStandardMaterial color="#334155" roughness={0.8} metalness={0.2} />
+      {/* Rustic red/brown color for barns/silos */}
+      <meshStandardMaterial color="#6b2b2b" roughness={0.9} metalness={0.1} />
     </instancedMesh>
   )
 }
@@ -55,28 +57,31 @@ function ObstacleInstances() {
 function Terrain() {
   const gridTexture = useMemo(() => {
     const canvas = document.createElement('canvas')
-    canvas.width = 256 // PERF: Halved from 512
+    canvas.width = 256
     canvas.height = 256
     const ctx = canvas.getContext('2d')
-    ctx.fillStyle = '#0f172a'
+    
+    // Rich soil background
+    ctx.fillStyle = '#2d1c15'
     ctx.fillRect(0, 0, 256, 256)
-    ctx.strokeStyle = '#10b981'
-    ctx.globalAlpha = 0.25
-    ctx.lineWidth = 1
+    
+    // Lush green crop rows
+    ctx.fillStyle = '#166534'
     for (let i = 0; i <= 256; i += 32) {
-      ctx.beginPath(); ctx.moveTo(i, 0); ctx.lineTo(i, 256); ctx.stroke()
-      ctx.beginPath(); ctx.moveTo(0, i); ctx.lineTo(256, i); ctx.stroke()
+      // Add slight organic variation
+      ctx.fillRect(0, i + 4, 256, 14)
     }
+    
     const texture = new THREE.CanvasTexture(canvas)
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(80, 80)
+    texture.repeat.set(120, 120) // Tile more densely
     return texture
   }, [])
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, 0]}>
-      <planeGeometry args={[4000, 4000]} /> {/* PERF: Halved from 8000 */}
+      <planeGeometry args={[4000, 4000]} />
       <meshStandardMaterial map={gridTexture} roughness={1} metalness={0} />
     </mesh>
   )
