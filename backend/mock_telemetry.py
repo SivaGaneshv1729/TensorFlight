@@ -111,10 +111,10 @@ class DroneSimulator:
                     if self.alt < self.target_wp.get('alt', 15): target_alt_vel = 1.0
                     elif self.alt > self.target_wp.get('alt', 15): target_alt_vel = -1.0
 
-            # 1. Update orientation (tilt interpolation - drones don't snap instantly)
-            self.pitch += (target_pitch - self.pitch) * 3.0 * dt
-            self.roll += (target_roll - self.roll) * 3.0 * dt
-            self.vel_yaw += (target_yaw_vel - self.vel_yaw) * 4.0 * dt
+            # 1. Update orientation (tilt interpolation - snappier for GPS hold)
+            self.pitch += (target_pitch - self.pitch) * 6.0 * dt
+            self.roll += (target_roll - self.roll) * 6.0 * dt
+            self.vel_yaw += (target_yaw_vel - self.vel_yaw) * 6.0 * dt
             self.heading = (self.heading + self.vel_yaw * dt) % 360
 
             # 2. Calculate acceleration based on tilt (Gravity = 9.81)
@@ -125,10 +125,10 @@ class DroneSimulator:
             # 3. Apply acceleration to local velocity
             self.vel_forward += accel_forward * dt
             self.vel_right += accel_right * dt
-            self.vel_alt += (target_alt_vel - self.vel_alt) * 2.0 * dt
+            self.vel_alt += (target_alt_vel - self.vel_alt) * 3.0 * dt
             
-            # 4. Apply Drag (Air resistance causes terminal velocity)
-            drag_coeff = 0.4
+            # 4. Apply Drag (Heavy drag for 'GPS Position Hold' feel)
+            drag_coeff = 4.0
             self.vel_forward *= (1.0 - drag_coeff * dt)
             self.vel_right *= (1.0 - drag_coeff * dt)
 
@@ -189,7 +189,11 @@ class DroneSimulator:
                 "battery_percentage": int(self.battery)
             },
             "navigation_target": {
-                "next_waypoint_gps": self.target_wp if self.target_wp else {"latitude": self.home_lat, "longitude": self.home_lon, "altitude_relative_m": 0},
+                "next_waypoint_gps": {
+                    "latitude": self.target_wp["lat"],
+                    "longitude": self.target_wp["lon"],
+                    "altitude_relative_m": self.target_wp.get("alt", 0)
+                } if self.target_wp else {"latitude": self.home_lat, "longitude": self.home_lon, "altitude_relative_m": 0},
                 "distance_to_wp_m": 0.0
             },
             "ai_analysis": {
