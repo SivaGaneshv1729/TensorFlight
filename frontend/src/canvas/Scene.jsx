@@ -81,6 +81,7 @@ const HUDOverlay = memo(function HUDOverlay() {
 
 const HolographicTargetLine = memo(function HolographicTargetLine() {
   const targetWp = useTelemetryStore((s) => s.telemetry.navigation_target.next_waypoint_gps)
+  const missionWaypoints = useTelemetryStore((s) => s.telemetry.navigation_target.mission_waypoints || [])
   const isArmed = useTelemetryStore((s) => s.telemetry.is_active)
   const latitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.latitude)
   const longitude = useTelemetryStore((s) => s.telemetry.drone_state.gps.longitude)
@@ -97,24 +98,34 @@ const HolographicTargetLine = memo(function HolographicTargetLine() {
     const tgtZ = -(targetWp.latitude - homeRef.current.lat) * 111319
     const tgtY = targetWp.altitude_relative_m ?? 15
 
-    return {
-      points: [
-        [droneX, altitude || 0, droneZ],
-        [tgtX, tgtY, tgtZ]
-      ],
-      tgtPos: [tgtX, tgtY, tgtZ]
-    }
-  }, [isArmed, targetWp, latitude, longitude, altitude])
+    const points = [
+      [droneX, altitude || 0, droneZ],
+      [tgtX, tgtY, tgtZ]
+    ]
+    const waypoints3D = [[tgtX, tgtY, tgtZ]]
+
+    missionWaypoints.forEach(wp => {
+      const wx = (wp.longitude - homeRef.current.lon) * 111319 * Math.cos(latitude * Math.PI / 180)
+      const wz = -(wp.latitude - homeRef.current.lat) * 111319
+      const wy = wp.altitude_relative_m ?? 15
+      points.push([wx, wy, wz])
+      waypoints3D.push([wx, wy, wz])
+    })
+
+    return { points, waypoints3D }
+  }, [isArmed, targetWp, missionWaypoints, latitude, longitude, altitude])
 
   if (!lineData) return null
 
   return (
     <group>
       <Line points={lineData.points} color="#fbbf24" lineWidth={1.5} transparent opacity={0.6} dashed={true} dashSize={1} gapSize={0.5} />
-      <mesh position={lineData.tgtPos}>
-        <octahedronGeometry args={[0.6]} />
-        <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.5} roughness={0.2} metalness={0.8} />
-      </mesh>
+      {lineData.waypoints3D.map((pos, idx) => (
+        <mesh key={idx} position={pos}>
+          <octahedronGeometry args={[0.6]} />
+          <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.5} roughness={0.2} metalness={0.8} />
+        </mesh>
+      ))}
     </group>
   )
 })

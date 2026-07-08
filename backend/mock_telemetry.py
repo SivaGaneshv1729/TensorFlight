@@ -79,6 +79,10 @@ class DroneSimulator:
             elif self.is_rtl:
                 self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 15.0}
 
+            # Pop next mission waypoint if we don't have a target
+            if not self.target_wp and self.mission_waypoints and not self.active_inputs and not self.is_rtl:
+                self.target_wp = self.mission_waypoints.pop(0)
+
             if self.target_wp and not self.active_inputs:
                 dist_lat = (self.target_wp['lat'] - self.lat) * 111319
                 dist_lon = (self.target_wp['lon'] - self.lon) * 111319 * math.cos(math.radians(self.lat))
@@ -202,7 +206,8 @@ class DroneSimulator:
                     "longitude": self.target_wp["lon"],
                     "altitude_relative_m": self.target_wp.get("alt", 0)
                 } if self.target_wp else {"latitude": self.home_lat, "longitude": self.home_lon, "altitude_relative_m": 0},
-                "distance_to_wp_m": 0.0
+                "distance_to_wp_m": 0.0,
+                "mission_waypoints": [{"latitude": wp["lat"], "longitude": wp["lon"], "altitude_relative_m": wp.get("alt", 15)} for wp in self.mission_waypoints]
             },
             "ai_analysis": {
                 "weed_count": int(5 + 2 * math.sin(time.time())),

@@ -12,6 +12,7 @@ const DEFAULT_TELEMETRY = {
   navigation_target: {
     next_waypoint_gps: { latitude: 41.7315, longitude: -93.8587 },
     distance_to_wp_m: 0,
+    mission_waypoints: [],
     coverage_efficiency_score: 1.0
   },
   ai_analysis: {

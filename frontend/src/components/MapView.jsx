@@ -226,27 +226,44 @@ export default function MapView({ onClose }) {
             const h = data.drone_state.orientation_deg.yaw_heading
             const color = droneColors[id] || '#ffffff'
             const isActive = id === activeDroneId
+            const nextWp = data.navigation_target.next_waypoint_gps
+            const hasMission = data.navigation_target.mission_waypoints?.length > 0
 
             return (
-              <Marker 
-                key={id}
-                position={pos} 
-                icon={new L.DivIcon({
-                  html: `
-                    <div style="transform: rotate(${h}deg); transition: transform 0.1s; position: relative;">
-                       <svg width="${isActive ? 36 : 24}" height="${isActive ? 36 : 24}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-                         <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                       </svg>
-                       <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: ${isActive ? color : '#334155'}; color: ${isActive ? 'black' : 'white'}; font-size: 7px; font-weight: 900; padding: 1px 2px; border-radius: 1px; border: 1px solid black;">
-                         ${id}
-                       </div>
-                    </div>
-                  `,
-                  className: 'drone-marker',
-                  iconSize: [isActive ? 36 : 24, isActive ? 36 : 24],
-                  iconAnchor: [isActive ? 18 : 12, isActive ? 18 : 12]
-                })}
-              />
+              <React.Fragment key={id}>
+                <Marker 
+                  position={pos} 
+                  icon={new L.DivIcon({
+                    html: `
+                      <div style="transform: rotate(${h}deg); transition: transform 0.1s; position: relative;">
+                         <svg width="${isActive ? 36 : 24}" height="${isActive ? 36 : 24}" viewBox="0 0 24 24" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                           <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
+                         </svg>
+                         <div style="position: absolute; top: -12px; left: 50%; transform: translateX(-50%); background: ${isActive ? color : '#334155'}; color: ${isActive ? 'black' : 'white'}; font-size: 7px; font-weight: 900; padding: 1px 2px; border-radius: 1px; border: 1px solid black;">
+                           ${id}
+                         </div>
+                      </div>
+                    `,
+                    className: 'drone-marker',
+                    iconSize: [isActive ? 36 : 24, isActive ? 36 : 24],
+                    iconAnchor: [isActive ? 18 : 12, isActive ? 18 : 12]
+                  })}
+                />
+                
+                {hasMission && (
+                  <Polyline 
+                    positions={[
+                      pos,
+                      [nextWp.latitude, nextWp.longitude],
+                      ...data.navigation_target.mission_waypoints.map(wp => [wp.latitude, wp.longitude])
+                    ]}
+                    color={color}
+                    dashArray="4, 4"
+                    weight={isActive ? 3 : 1.5}
+                    opacity={isActive ? 0.8 : 0.4}
+                  />
+                )}
+              </React.Fragment>
             )
           })}
 
