@@ -2,7 +2,11 @@ import cv2
 import numpy as np
 import time
 import threading
+import os
 from typing import Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 class VideoManager:
     _instance = None
@@ -18,7 +22,9 @@ class VideoManager:
     def __init__(self):
         if self._initialized:
             return
-        self.source = "0"
+        
+        self.simulator_mode = os.getenv("SIMULATOR_MODE", "True").lower() == "true"
+        self.source = os.getenv("VIDEO_SOURCE", "0") if not self.simulator_mode else None
         self.cap: Optional[cv2.VideoCapture] = None
         self.last_frame: Optional[np.ndarray] = None
         self.is_running = False
@@ -45,10 +51,14 @@ class VideoManager:
 
     def _capture_loop(self):
         source = self.source
-        if isinstance(source, str) and source.isdigit():
+        if source and str(source).isdigit():
             source = int(source)
         
-        self.cap = cv2.VideoCapture(source)
+        # If in pure digital simulator mode, don't even try to open the webcam
+        if self.simulator_mode or not source:
+            self.cap = None
+        else:
+            self.cap = cv2.VideoCapture(source)
         
         while self.is_running:
             if self.cap and self.cap.isOpened():
@@ -67,47 +77,69 @@ class VideoManager:
                 time.sleep(0.1)
 
     def _generate_mock_frame(self) -> np.ndarray:
-        # Create a lush green base representing crops
-        frame = np.zeros((480, 640, 3), dtype=np.uint8)
-        frame[:] = (20, 50, 20) # Deep green grass tone
+        """
+        Pure Digital AI Demo Mode (High Fidelity):
+        Generates realistic BGR pixel values representing soil, healthy crops, and weeds,
+        then applies a 3D perspective warp to simulate a downward-facing drone camera.
+        """
+        # Create a larger 2D texture (800x800) to warp
+        texture = np.zeros((800, 800, 3), dtype=np.uint8)
+        texture[:] = (35, 60, 90)  # BGR for rich brown soil
         
         t = time.time()
+        # Fast scrolling offset to simulate flight speed
+        offset = int((t * 150) % 200)
         
-        # Draw parallel crop rows scrolling horizontally to simulate flight movement
-        offset = int((t * 60) % 80)
-        for x in range(-80, 640 + 80, 80):
-            cv2.line(frame, (x + offset, 0), (x + offset, 480), (30, 80, 30), 12)
-            
-        # Draw some brown soil patches between the rows
-        for y in range(0, 480, 120):
-            py = int(y + (t * 20) % 120)
-            cv2.circle(frame, (200, py), 15, (40, 60, 50), -1)
-            cv2.circle(frame, (440, (py + 60) % 480), 20, (35, 55, 45), -1)
+        # 2. Draw Healthy Crop Rows (Lush Green)
+        for x in range(-200, 1000, 100):
+            row_x = x
+            for y in range(0, 800, 20):
+                # Organic jitter
+                jx = row_x + int(8 * np.sin(y * 0.05 + t))
+                jy = (y + offset) % 800
+                cv2.circle(texture, (jx, jy), 18, (20, 200, 40), -1)  # Bright Green (BGR)
+                
+        # 3. Draw Weeds / Pest Stress patches
+        # Patch 1: Weed Cluster
+        w_x1 = int(300 + 100 * np.sin(t * 0.3))
+        w_y1 = int(400 + 150 * np.cos(t * 0.2))
+        pts = np.array([
+            [w_x1, w_y1-25], [w_x1+30, w_y1], [w_x1+25, w_y1+30],
+            [w_x1-25, w_y1+30], [w_x1-30, w_y1]
+        ], np.int32)
+        cv2.fillPoly(texture, [pts], (20, 180, 160)) # Yellow-green weed
+        
+        # Patch 2: Drought / Dead Crop
+        d_x = int(600)
+        d_y = int(200 + 80 * np.cos(t * 0.5))
+        cv2.circle(texture, (d_x, d_y), 40, (30, 70, 110), -1) # Brown
 
-        # Draw AI simulated weed bounding boxes (Red)
-        w_x1 = int(120 + 80 * np.sin(t * 0.4))
-        w_y1 = int(150 + 60 * np.cos(t * 0.3))
-        cv2.rectangle(frame, (w_x1, w_y1), (w_x1 + 60, w_y1 + 40), (0, 0, 255), 2)
-        cv2.putText(frame, "AI TARGET: WEED (89%)", (w_x1, w_y1 - 6), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
+        # --- 3D Perspective Warp ---
+        # We want to warp this 800x800 texture into a 640x480 frame with perspective.
+        # Define source points (the 4 corners of our texture)
+        pts1 = np.float32([[0, 0], [800, 0], [0, 800], [800, 800]])
+        
+        # Define destination points (trapezoid on the 640x480 frame)
+        # Top corners are closer together to create vanishing point depth
+        pts2 = np.float32([
+            [120, 100],   # Top-left
+            [520, 100],   # Top-right
+            [-200, 480],  # Bottom-left (spread out)
+            [840, 480]    # Bottom-right
+        ])
+        
+        # Generate perspective transform matrix
+        matrix = cv2.getPerspectiveTransform(pts1, pts2)
+        
+        # Warp the texture onto a 640x480 canvas
+        frame = cv2.warpPerspective(texture, matrix, (640, 480), borderMode=cv2.BORDER_CONSTANT, borderValue=(20, 20, 20))
+        
+        # Add horizon/sky
+        cv2.rectangle(frame, (0, 0), (640, 100), (180, 120, 60), -1) # Sky blue (BGR)
 
-        w_x2 = int(450 + 70 * np.cos(t * 0.2))
-        w_y2 = int(280 + 50 * np.sin(t * 0.4))
-        cv2.rectangle(frame, (w_x2, w_y2), (w_x2 + 70, w_y2 + 50), (0, 0, 255), 2)
-        cv2.putText(frame, "AI TARGET: WEED (94%)", (w_x2, w_y2 - 6), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 0, 255), 1)
-
-        # Draw AI simulated crop stress / pest patches (Yellow)
-        s_x = int(280 + 100 * np.cos(t * 0.3))
-        s_y = int(80 + 40 * np.sin(t * 0.5))
-        cv2.rectangle(frame, (s_x, s_y), (s_x + 90, s_y + 70), (0, 255, 255), 2)
-        cv2.putText(frame, "AI DETECT: CROP STRESS (78%)", (s_x, s_y - 6), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (0, 255, 255), 1)
-
-        # Overlay crosshairs and telemetry UI text on the camera feed
-        cv2.drawMarker(frame, (320, 240), (204, 255, 0), cv2.MARKER_CROSS, 25, 2)
-        cv2.putText(frame, "AI SCANNING ACTIVE - 30 FPS", (20, 40), 
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.5, (204, 255, 0), 1)
+        # Overlay a subtle digital watermark to indicate Simulator mode
+        cv2.putText(frame, "PURE DIGITAL DEMO - HIGH FIDELITY SIM", (10, 20), 
+                    cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         
         return frame
 
