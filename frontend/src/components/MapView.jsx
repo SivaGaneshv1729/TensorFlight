@@ -198,7 +198,7 @@ export default function MapView({ onClose }) {
   const distance = selectedTarget ? getDistance(latitude, longitude, selectedTarget.lat, selectedTarget.lon) : 0;
 
   return (
-    <div className="absolute left-64 right-[400px] top-8 bottom-8 bg-emerald-950/40 backdrop-blur-xl border border-emerald-500/20 rounded-lg overflow-hidden shadow-2xl z-50 flex flex-col pointer-events-auto">
+    <div className="absolute inset-0 bg-[#1c1d21] border border-gray-700/30 rounded-lg overflow-hidden shadow-2xl z-50 flex flex-col pointer-events-auto">
       <div className="flex justify-between items-center p-3 bg-emerald-900/40 backdrop-blur-md shadow-inner shadow-emerald-500/10 border-b border-emerald-500/20 z-[1000]">
         <div className="flex items-center gap-2">
           <Navigation size={14} className="text-cyan-400 drop-shadow-[0_0_8px_rgba(34,211,238,0.5)]" />
