@@ -1,144 +1,103 @@
 import React from 'react'
-import { AlertTriangle, ShieldAlert, ShieldCheck, Eye, Target, Wind, Orbit } from 'lucide-react'
 import useTelemetryStore from '../store/useTelemetryStore'
 
-export function StatsConsole() {
-  const history = useTelemetryStore((state) => state.history)
-  const activeCommands = useTelemetryStore((state) => state.activeCommands)
-  
-  // Create a pseudo-timeline from history
-  return (
-    <div className="flex h-full w-full flex-col bg-neutral-900 font-sans select-none overflow-hidden border-t border-neutral-800">
-      
-      {/* Timeline Ruler */}
-      <div className="h-6 bg-neutral-800/50 border-b border-neutral-700 flex relative overflow-hidden">
-        <div className="w-24 shrink-0 border-r border-neutral-700 flex items-center justify-center bg-neutral-800">
-           <Orbit size={12} className="text-neutral-500" />
-        </div>
-        <div className="flex-1 relative flex items-center">
-           {[...Array(20)].map((_, i) => (
-             <div key={i} className="absolute flex flex-col items-center" style={{ right: `${i * 100}px` }}>
-                <div className="h-2 w-px bg-neutral-600" />
-                <span className="text-[7px] font-mono text-neutral-500 mt-0.5">00:0{9-i}:00</span>
-             </div>
-           ))}
-        </div>
-      </div>
-
-      <div className="flex-1 flex overflow-hidden">
-        {/* Track Headers */}
-        <div className="w-24 shrink-0 bg-neutral-800/80 border-r border-neutral-700 flex flex-col text-[8px] font-black uppercase tracking-widest text-neutral-500 divide-y divide-neutral-700">
-           <div className="h-10 flex items-center px-2 gap-2"><Eye size={10} /> V1: CMD</div>
-           <div className="h-12 flex items-center px-2 gap-2"><Wind size={10} /> A1: ALT</div>
-           <div className="h-12 flex items-center px-2 gap-2"><Orbit size={10} /> A2: BATT</div>
-        </div>
-
-        {/* Track Contents */}
-        <div className="flex-1 relative bg-neutral-900 overflow-hidden divide-y divide-neutral-800/50">
-           
-           {/* V1: Command Blocks */}
-           <div className="h-10 relative flex items-center px-4 overflow-hidden">
-              {activeCommands.length > 0 && (
-                <div className="absolute right-4 h-6 bg-emerald-600/30 border border-emerald-500/50 px-2 flex items-center gap-2 rounded-sm">
-                   <Target size={10} className="text-emerald-400" />
-                   <span className="text-[7px] font-black text-emerald-100 uppercase tracking-widest">{activeCommands.join(' + ')}</span>
-                </div>
-              )}
-           </div>
-
-           {/* A1: Altitude Waveform (Simplified SVG path) */}
-           <div className="h-12 relative overflow-hidden bg-neutral-950/30">
-              <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-                {history.length > 1 && (
-                  <>
-                    <path 
-                      d={`M ${history.map((h, i) => `${(100 - (history.length - i)) * 10},${50 - h.alt}`).join(' L ')}`} 
-                      fill="none" 
-                      stroke="#10b981" 
-                      strokeWidth="1.5"
-                      className="transition-all duration-300"
-                    />
-                    <path 
-                      d={`M ${history.map((h, i) => `${(100 - (history.length - i)) * 10},${50 - h.alt}`).join(' L ')} L 1000,50 L 0,50 Z`} 
-                      fill="url(#altGradient)" 
-                      className="opacity-20"
-                    />
-                  </>
-                )}
-                <defs>
-                  <linearGradient id="altGradient" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor="#10b981" />
-                    <stop offset="100%" stopColor="transparent" />
-                  </linearGradient>
-                </defs>
-              </svg>
-           </div>
-
-           {/* A2: Battery / Speed Waveform */}
-           <div className="h-12 relative overflow-hidden bg-neutral-950/30">
-              <svg className="absolute inset-0 w-full h-full" preserveAspectRatio="none">
-                {history.length > 1 && (
-                  <path 
-                    d={`M ${history.map((h, i) => `${(100 - (history.length - i)) * 10},${50 - h.battery * 0.4}`).join(' L ')}`} 
-                    fill="none" 
-                    stroke="#3b82f6" 
-                    strokeWidth="1"
-                  />
-                )}
-              </svg>
-           </div>
-
-           {/* Playhead */}
-           <div className="absolute top-0 bottom-0 right-4 w-px bg-rose-500 z-50 shadow-[0_0_8px_#f43f5e]">
-              <div className="absolute top-0 -translate-x-1/2 w-3 h-3 bg-rose-500 rotate-45 border border-white/20" />
-           </div>
-        </div>
-      </div>
-
-      {/* Timeline Controls */}
-      <div className="h-6 bg-neutral-800 border-t border-neutral-700 flex items-center px-4 gap-6">
-         <div className="flex gap-2">
-            <button className="text-neutral-500 hover:text-white transition-colors"><ShieldCheck size={10} /></button>
-            <button className="text-neutral-500 hover:text-white transition-colors"><AlertTriangle size={10} /></button>
-         </div>
-         <div className="h-3 w-px bg-neutral-700" />
-         <div className="flex items-center gap-2">
-            <span className="text-[7px] font-bold text-neutral-500 uppercase">Datalink:</span>
-            <span className="text-[7px] font-mono text-emerald-500">ENCRYPTED / MJPEG VISUAL [LOCKED]</span>
-         </div>
-      </div>
-    </div>
-  )
-}
-
 export default function HUD() {
-  const isConnected = useTelemetryStore((state) => state.telemetry.is_connected)
-  const isArmed = useTelemetryStore((state) => state.telemetry.is_active)
-  const lat = useTelemetryStore((state) => state.telemetry.drone_state.gps.latitude) || 0
-  const lon = useTelemetryStore((state) => state.telemetry.drone_state.gps.longitude) || 0
-  
+  const telemetry = useTelemetryStore((state) => state.telemetry)
+  const orientation = telemetry?.drone_state?.orientation_deg ?? { pitch: 0, roll: 0, yaw_heading: 0 }
+  const heading = orientation.yaw_heading
+
   return (
-    <div className="p-0 flex flex-col justify-between h-full relative font-sans tracking-wide text-white pointer-events-none">
+    <div className="absolute inset-0 p-4 font-sans pointer-events-none flex flex-col justify-between z-20">
       
-      {/* Center Sight - Structured industrial crosshair */}
-      <div className="absolute inset-0 flex items-center justify-center">
-        <div className="relative w-64 h-64 flex items-center justify-center opacity-50">
-          {/* Tick marks on axes */}
-          <div className="absolute w-full h-[1px] bg-emerald-400/30" />
-          <div className="absolute h-full w-[1px] bg-emerald-400/30" />
-          
-          <div className="absolute w-12 h-[2px] bg-emerald-400 left-[20%]" />
-          <div className="absolute w-12 h-[2px] bg-emerald-400 right-[20%]" />
-          <div className="absolute h-12 w-[2px] bg-emerald-400 top-[20%]" />
-          <div className="absolute h-12 w-[2px] bg-emerald-400 bottom-[20%]" />
-          
-          <div className="w-16 h-16 border border-emerald-400/50" />
-          <div className="w-4 h-4 border-2 border-emerald-400 bg-emerald-900/50" />
-        </div>
+      {/* Top Overlays */}
+      <div className="flex justify-between items-start">
+         <div className="flex flex-col gap-2">
+            <div className="bg-black/60 backdrop-blur-md rounded-md flex items-center gap-2 px-4 py-2 border border-white/10 w-fit">
+               <div className="w-2 h-2 rounded-full bg-red-500" />
+               <span className="text-white text-xs font-bold uppercase tracking-wider">HDR</span>
+            </div>
+            <div className="text-agri-primary font-bold text-sm">
+               4K <span className="text-white font-normal">- 19.67 FPS</span>
+            </div>
+         </div>
+
+         <div className="bg-black/60 backdrop-blur-md rounded-md flex items-center gap-4 px-4 py-2 border border-white/10">
+            <div className="w-1 h-3 bg-white/80 flex items-center gap-1">
+               <div className="w-1 h-3 bg-white/80" />
+            </div>
+            <div className="flex items-center gap-2">
+               <div className="w-2 h-2 rounded-full bg-red-500" />
+               <span className="text-white text-xs font-mono">02:11</span>
+            </div>
+         </div>
       </div>
 
-      {/* AR Status Blocks - Reverted to integrated top-down look instead of floating badge */}
-      {/* Handled by App.jsx TopHeader, so we can keep HUD clean. */}
+      {/* Center Crosshair & Level */}
+      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+         {/* Simple crosshair */}
+         <div className="w-16 h-px bg-white/80 absolute -ml-24" />
+         <div className="w-16 h-px bg-white/80 absolute ml-24" />
+         <div className="w-px h-16 bg-white/80 absolute mb-24 dashed" style={{ borderLeft: '1px dashed rgba(255,255,255,0.8)' }} />
+         <div className="w-px h-16 bg-white/80 absolute mt-24 dashed" style={{ borderLeft: '1px dashed rgba(255,255,255,0.8)' }} />
+         <div className="w-4 h-4 rounded-full bg-white/80 border-[3px] border-black/50" />
+      </div>
+
+      <div className="absolute top-1/3 left-4 flex flex-col gap-1 w-32">
+         <span className="text-white font-medium text-xs">Level</span>
+         <div className="h-0.5 bg-gray-500/50 w-full relative">
+            <div className="absolute left-0 top-0 h-full w-1/3 bg-agri-primary" />
+         </div>
+         <div className="mt-2 w-10 h-8 border border-white/50 rounded-md flex items-center justify-center text-white text-xs font-bold">KT</div>
+      </div>
+
+      {/* Bottom Overlays */}
+      <div className="flex justify-between items-end">
+         
+         <div className="flex flex-col gap-4">
+            {/* Color picker buttons */}
+            <div className="grid grid-cols-2 gap-2">
+               <div className="bg-black/60 rounded-md px-4 py-2 flex items-center gap-2 border border-white/10">
+                  <div className="w-2 h-2 rounded-full bg-red-500" />
+                  <span className="text-white text-xs font-bold">R</span>
+               </div>
+               <div className="bg-black/60 rounded-md px-4 py-2 flex items-center gap-2 border border-white/10">
+                  <div className="w-2 h-2 rounded-full bg-agri-secondary" />
+                  <span className="text-white text-xs font-bold">G</span>
+               </div>
+               <div className="bg-black/60 rounded-md px-4 py-2 flex items-center gap-2 border border-white/10 border-indigo-500/50 shadow-[inset_0_0_10px_rgba(99,102,241,0.3)]">
+                  <div className="w-2 h-2 rounded-full bg-indigo-500" />
+                  <span className="text-white text-xs font-bold">B</span>
+               </div>
+               <div className="bg-black/60 rounded-md px-4 py-2 flex items-center gap-2 border border-white/10">
+                  <div className="w-2 h-2 rounded-full bg-yellow-400" />
+                  <span className="text-white text-xs font-bold">Y</span>
+               </div>
+            </div>
+
+            {/* Histogram (mock) */}
+            <div className="w-40 h-20 bg-black/40 border border-white/20 rounded-sm relative flex flex-col justify-end p-1">
+               <span className="absolute top-1 left-2 text-white text-xs font-bold">H2.85</span>
+               <div className="flex items-end h-1/2 w-full gap-[1px]">
+                  {[...Array(40)].map((_, i) => (
+                    <div key={i} className={`flex-1 ${i > 10 && i < 18 ? 'bg-agri-primary' : 'bg-white/70'}`} style={{ height: `${Math.max(10, Math.random() * 100)}%` }} />
+                  ))}
+               </div>
+            </div>
+         </div>
+
+         {/* Compass */}
+         <div className="w-24 h-24 rounded-full bg-[#1c1d21]/80 backdrop-blur-md border-[4px] border-[#2a2c31] relative flex items-center justify-center">
+            {/* Tick marks would go here */}
+            <div className="absolute inset-1 rounded-full border border-dashed border-gray-500/50" />
+            <div className="absolute top-1 w-1 h-3 bg-agri-primary z-10" />
+            <div className="flex flex-col items-center leading-tight">
+               <span className="text-agri-primary font-bold text-sm">{heading.toFixed(0)}°</span>
+               <span className="text-white font-bold text-xs">NW</span>
+            </div>
+         </div>
+
+      </div>
+
     </div>
   )
 }
