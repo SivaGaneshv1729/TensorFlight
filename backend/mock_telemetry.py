@@ -47,33 +47,35 @@ class DroneSimulator:
                 self.battery = 0
                 self.is_armed = False
 
-        # 2. Physics & Navigation
+        # 2. Physics & Navigation (High-Fidelity Kinematic Model)
         if self.is_armed:
-            # Default to zero velocity each frame (prevent infinite coasting)
-            self.vel_forward = 0
-            self.vel_right = 0
-            self.vel_alt = 0
-            self.vel_yaw = 0
+            
+            # --- Thrust Vectoring / Multirotor Dynamics ---
+            target_pitch = 0.0
+            target_roll = 0.0
+            target_yaw_vel = 0.0
+            target_alt_vel = 0.0
             
             # Manual override logic
             if self.active_inputs:
                 self.target_wp = None
                 self.is_rtl = False
                 
-                f_speed = 10.0
+                # These represent target tilt angles (degrees)
+                max_tilt = 35.0
                 c_speed = 4.0
                 y_speed = 90.0
                 
-                if 'PITCH_FORWARD' in self.active_inputs: self.vel_forward = f_speed
-                if 'PITCH_BACK' in self.active_inputs: self.vel_forward = -f_speed
-                if 'ROLL_LEFT' in self.active_inputs: self.vel_right = -f_speed
-                if 'ROLL_RIGHT' in self.active_inputs: self.vel_right = f_speed
-                if 'ALT_UP' in self.active_inputs: self.vel_alt = c_speed
-                if 'ALT_DOWN' in self.active_inputs: self.vel_alt = -c_speed
-                if 'YAW_LEFT' in self.active_inputs: self.vel_yaw = -y_speed
-                if 'YAW_RIGHT' in self.active_inputs: self.vel_yaw = y_speed
+                if 'PITCH_FORWARD' in self.active_inputs: target_pitch = max_tilt
+                if 'PITCH_BACK' in self.active_inputs: target_pitch = -max_tilt
+                if 'ROLL_LEFT' in self.active_inputs: target_roll = -max_tilt
+                if 'ROLL_RIGHT' in self.active_inputs: target_roll = max_tilt
+                if 'ALT_UP' in self.active_inputs: target_alt_vel = c_speed
+                if 'ALT_DOWN' in self.active_inputs: target_alt_vel = -c_speed
+                if 'YAW_LEFT' in self.active_inputs: target_yaw_vel = -y_speed
+                if 'YAW_RIGHT' in self.active_inputs: target_yaw_vel = y_speed
             
-            # Simplistic RTL/Waypoint logic
+            # Simplistic RTL/Waypoint logic (overrides manual)
             elif self.is_rtl:
                 self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 15.0}
 
@@ -84,35 +86,65 @@ class DroneSimulator:
                 
                 if dist < 1.0 and abs(self.alt - self.target_wp.get('alt', 15)) < 1.0:
                     if self.is_rtl:
-                        self.vel_alt = -0.5
+                        target_alt_vel = -0.5
                         if self.alt <= 0.1:
                             self.is_armed = False
                             self.is_rtl = False
-                            self.vel_alt = 0
+                            target_alt_vel = 0
                     elif self.mission_waypoints:
                         self.target_wp = self.mission_waypoints.pop(0)
                     else:
                         self.target_wp = None
                 else:
-                    # Move towards target
+                    # PID-like navigation: Tilt towards target
                     angle = math.atan2(dist_lon, dist_lat)
-                    self.vel_forward = 5.0 * math.cos(angle)
-                    self.vel_right = 5.0 * math.sin(angle)
-                    # Smoothly rotate heading towards target
+                    # Convert target world velocity to local tilt
+                    target_v_fwd = 5.0 * math.cos(angle)
+                    target_v_rgt = 5.0 * math.sin(angle)
+                    
+                    target_pitch = (target_v_fwd / 10.0) * 35.0
+                    target_roll = (target_v_rgt / 10.0) * 35.0
+                    
                     target_heading = math.degrees(angle) % 360
-                    self.vel_yaw = (target_heading - self.heading + 180) % 360 - 180
-                    if self.alt < self.target_wp.get('alt', 15): self.vel_alt = 1.0
-                    elif self.alt > self.target_wp.get('alt', 15): self.vel_alt = -1.0
-                    else: self.vel_alt = 0
+                    target_yaw_vel = (target_heading - self.heading + 180) % 360 - 180
+                    
+                    if self.alt < self.target_wp.get('alt', 15): target_alt_vel = 1.0
+                    elif self.alt > self.target_wp.get('alt', 15): target_alt_vel = -1.0
 
-            # Apply wind effect ONLY if in the air
+            # 1. Update orientation (tilt interpolation - drones don't snap instantly)
+            self.pitch += (target_pitch - self.pitch) * 3.0 * dt
+            self.roll += (target_roll - self.roll) * 3.0 * dt
+            self.vel_yaw += (target_yaw_vel - self.vel_yaw) * 4.0 * dt
+            self.heading = (self.heading + self.vel_yaw * dt) % 360
+
+            # 2. Calculate acceleration based on tilt (Gravity = 9.81)
+            # A drone pitches forward by tilting its thrust vector.
+            accel_forward = math.sin(math.radians(self.pitch)) * 9.81
+            accel_right = math.sin(math.radians(self.roll)) * 9.81
+            
+            # 3. Apply acceleration to local velocity
+            self.vel_forward += accel_forward * dt
+            self.vel_right += accel_right * dt
+            self.vel_alt += (target_alt_vel - self.vel_alt) * 2.0 * dt
+            
+            # 4. Apply Drag (Air resistance causes terminal velocity)
+            drag_coeff = 0.4
+            self.vel_forward *= (1.0 - drag_coeff * dt)
+            self.vel_right *= (1.0 - drag_coeff * dt)
+
+            # 5. Apply wind effect (Turbulent drift)
+            wind_drift_lat = 0
+            wind_drift_lon = 0
             if self.alt > 0.5:
+                # Add a little perlin-esque sine wave for gustiness
+                gust = wind_speed + math.sin(time.time() * 2.0 + self.id.__hash__()) * (wind_speed * 0.5)
                 wind_rad = math.radians(wind_dir)
-                self.lat += (wind_speed * 0.000001 * math.cos(wind_rad)) * dt
-                self.lon += (wind_speed * 0.000001 * math.sin(wind_rad)) * dt
+                wind_drift_lat = (gust * 0.000001 * math.cos(wind_rad)) * dt
+                wind_drift_lon = (gust * 0.000001 * math.sin(wind_rad)) * dt
+                self.lat += wind_drift_lat
+                self.lon += wind_drift_lon
 
-            # Apply velocity to position
-            # We need to rotate forward/right velocity by the current heading
+            # 6. Apply local velocity to world position
             heading_rad = math.radians(self.heading)
             cos_h = math.cos(heading_rad)
             sin_h = math.sin(heading_rad)
@@ -123,23 +155,27 @@ class DroneSimulator:
             self.lat += (world_vel_lat * 0.000009) * dt
             self.lon += (world_vel_lon * 0.000009) * dt
             self.alt += self.vel_alt * dt
-            self.heading = (self.heading + self.vel_yaw * dt) % 360
-
-            # Visual tilt interpolation
-            target_pitch = (self.vel_forward / 10.0) * 20.0
-            target_roll = (self.vel_right / 10.0) * 20.0
-            self.pitch += (target_pitch - self.pitch) * 5 * dt
-            self.roll += (target_roll - self.roll) * 5 * dt
 
         else:
-            self.vel_forward = 0
-            self.vel_right = 0
-            self.vel_alt = 0
-            self.vel_yaw = 0
-            self.pitch *= 0.9
-            self.roll *= 0.9
-            if self.alt > 0: self.alt -= 2.0 * dt
-            if self.alt < 0: self.alt = 0
+            # Unarmed state - decay all velocities and tilts to zero
+            self.vel_forward *= (1.0 - 1.0 * dt)
+            self.vel_right *= (1.0 - 1.0 * dt)
+            self.vel_yaw *= (1.0 - 2.0 * dt)
+            self.pitch *= (1.0 - 4.0 * dt)
+            self.roll *= (1.0 - 4.0 * dt)
+            
+            if self.alt > 0: 
+                self.alt -= 2.0 * dt
+                if self.alt < 0: self.alt = 0
+            
+            # Still apply some residual sliding if disarmed in mid-air
+            heading_rad = math.radians(self.heading)
+            cos_h = math.cos(heading_rad)
+            sin_h = math.sin(heading_rad)
+            world_vel_lat = self.vel_forward * cos_h - self.vel_right * sin_h
+            world_vel_lon = self.vel_forward * sin_h + self.vel_right * cos_h
+            self.lat += (world_vel_lat * 0.000009) * dt
+            self.lon += (world_vel_lon * 0.000009) * dt
 
     def get_payload(self):
         return {
