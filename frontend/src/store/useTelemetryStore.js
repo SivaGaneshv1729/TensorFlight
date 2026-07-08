@@ -15,11 +15,32 @@ const DEFAULT_TELEMETRY = {
     coverage_efficiency_score: 1.0
   },
   ai_analysis: {
+    // Detection counts
     weed_count: 0,
     pest_stressed_count: 0,
+    drought_stressed_count: 0,
+    healthy_zone_count: 0,
+    // Vegetation health indices
+    coverage_pct: 0.0,
+    stress_pct: 0.0,
+    vari_mean: 0.0,
+    exg_mean: 0.0,
+    ngrdi_mean: 0.0,
+    // Spray decisions
+    spray_recommended: false,
+    spray_zone_count: 0,
+    // Safety
     collision_warning: false,
+    // Weather (real or model)
     wind_speed_mps: 0.0,
-    wind_dir_deg: 0.0
+    wind_dir_deg: 0.0,
+    temperature_c: 20.0,
+    humidity_pct: 50.0,
+    is_storming: false,
+    is_safe_to_fly: true,
+    weather_source: 'model',
+    // Raw detections list
+    detections: [],
   }
 }
 
@@ -61,7 +82,7 @@ const useTelemetryStore = create((set) => ({
       alt: currentTelemetry.drone_state.gps.altitude_relative_m,
       wind: currentTelemetry.ai_analysis.wind_speed_mps
     };
-    const newHistory = [...state.history, newEntry].slice(-1000);
+    const newHistory = [...state.history, newEntry].slice(-150); // PERF: capped at 150
     
     return { 
       fleet: newFleet, 
