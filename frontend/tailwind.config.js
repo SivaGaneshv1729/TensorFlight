@@ -8,26 +8,16 @@ export default {
     extend: {
       colors: {
         agri: {
-          green: '#10b981',
-          neon: '#34d399',
-          gold: '#fbbf24',
-          dark: '#022c22',
-          glass: 'rgba(2, 44, 34, 0.6)',
+          bg: '#282a2e',
+          panel: '#34373a',
+          panelhover: '#42454a',
+          primary: '#ff8c42', // orange
+          secondary: '#20c997', // teal
+          dark: '#1e2023',
         }
       },
-      animation: {
-        'glow': 'glow 2s ease-in-out infinite alternate',
-        'float': 'float 3s ease-in-out infinite',
-      },
-      keyframes: {
-        glow: {
-          '0%': { boxShadow: '0 0 5px rgba(52, 211, 153, 0.2)' },
-          '100%': { boxShadow: '0 0 20px rgba(52, 211, 153, 0.6)' }
-        },
-        float: {
-          '0%, 100%': { transform: 'translateY(0)' },
-          '50%': { transform: 'translateY(-5px)' },
-        }
+      fontFamily: {
+        sans: ['Inter', 'system-ui', 'sans-serif'],
       }
     },
   },
