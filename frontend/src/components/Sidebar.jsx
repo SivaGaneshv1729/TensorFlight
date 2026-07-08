@@ -1,63 +1,18 @@
-import React, { useState, useRef } from 'react'
-import { Settings as SettingsIcon, Satellite, ShieldAlert, Play, Square, Home, ShieldCheck, ArrowUp, Activity, Power, Navigation2, Crosshair } from 'lucide-react'
+import React from 'react'
+import { Play, Square, Navigation2, ArrowUp, Home, ShieldCheck, AlertOctagon, ChevronDown, Settings2, Gauge } from 'lucide-react'
 import axios from 'axios'
 import useTelemetryStore from '../store/useTelemetryStore'
-import { sendSocketMessage } from '../useWebSocket'
-import TelemetryGraph from './TelemetryGraph'
-
-function InspectorSection({ title, children, defaultOpen = true }) {
-  const [isOpen, setIsOpen] = React.useState(defaultOpen)
-  return (
-    <div className="border-b border-neutral-800">
-      <button 
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-full h-6 px-2 flex items-center justify-between bg-neutral-800/20 hover:bg-neutral-800/40 transition-colors"
-      >
-        <span className="text-[8px] font-black text-neutral-400 uppercase tracking-widest">{title}</span>
-        <div className={`transition-transform duration-200 ${isOpen ? 'rotate-90' : ''}`}>
-           <Play size={8} fill="currentColor" className="text-neutral-600" />
-        </div>
-      </button>
-      {isOpen && <div className="p-3 bg-neutral-900/50 flex flex-col gap-3">{children}</div>}
-    </div>
-  )
-}
-
-function ControlButton({ onClick, active, label, icon: Icon, color = "emerald", disabled = false }) {
-  const colorMap = {
-    emerald: active ? "bg-emerald-600 border-emerald-500 text-white" : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:text-white",
-    amber: active ? "bg-amber-600 border-amber-500 text-white" : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:text-white",
-    rose: active ? "bg-rose-600 border-rose-500 text-white" : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:text-white",
-    cyan: active ? "bg-cyan-600 border-cyan-500 text-white" : "bg-neutral-800 border-neutral-700 text-neutral-400 hover:bg-neutral-700 hover:text-white",
-  }
-
-  return (
-    <button 
-      onClick={onClick}
-      disabled={disabled}
-      className={`flex flex-1 items-center justify-center gap-2 py-1.5 px-2 border rounded-sm transition-all shadow-sm ${disabled ? 'opacity-20 cursor-not-allowed' : colorMap[color]}`}
-    >
-      {Icon && <Icon size={12} />}
-      <span className="text-[9px] font-bold uppercase tracking-wider">{label}</span>
-    </button>
-  )
-}
 
 export default function Sidebar() {
   const telemetry = useTelemetryStore((state) => state.telemetry)
   const activeDroneId = useTelemetryStore((state) => state.activeDroneId)
+  const setActiveDroneId = useTelemetryStore((state) => state.setActiveDroneId)
+  const fleet = useTelemetryStore((state) => state.fleet)
   const isArmed = telemetry?.is_active ?? false
-  const altitude = telemetry?.drone_state?.gps?.altitude_relative_m || 0
-
-  const { forwardSpeed, climbSpeed } = useTelemetryStore((state) => state.settings)
+  const battery = telemetry?.drone_state?.battery_percentage ?? 0
+  const altitude = telemetry?.drone_state?.gps?.altitude_relative_m ?? 0
+  const settings = useTelemetryStore((state) => state.settings)
   const setSettings = useTelemetryStore((state) => state.setSettings)
-  const showMap = useTelemetryStore((state) => state.showMap)
-  const setShowMap = useTelemetryStore((state) => state.setShowMap)
-  const showAnalytics = useTelemetryStore((state) => state.showAnalytics)
-  const setShowAnalytics = useTelemetryStore((state) => state.setShowAnalytics)
-  const setActiveCommands = useTelemetryStore((state) => state.setActiveCommands)
-
-  const activeInputsRef = useRef(new Set())
 
   const sendCommand = async (action, params = {}) => {
     try {
@@ -67,112 +22,158 @@ export default function Sidebar() {
     }
   }
 
-  const handleControlStart = (command) => {
-    activeInputsRef.current.add(command)
-    updateManualControl()
-  }
-
-  const handleControlEnd = (command) => {
-    activeInputsRef.current.delete(command)
-    updateManualControl()
-  }
-  
-  const updateManualControl = () => {
-    const inputs = Array.from(activeInputsRef.current)
-    setActiveCommands(inputs)
-    sendSocketMessage({
-      target_id: activeDroneId,
-      action: 'MANUAL_CONTROL',
-      params: { inputs, forward_speed: forwardSpeed, climb_speed: climbSpeed }
-    })
-  }
-
   return (
-    <div className="w-full h-full flex flex-col pointer-events-auto overflow-y-auto no-scrollbar bg-neutral-900 select-none">
+    <div className="h-full flex flex-col font-sans select-none gap-4 overflow-y-auto no-scrollbar">
       
-      <InspectorSection title="Master Output (Power)">
-        <div className="flex gap-2 w-full">
-           <ControlButton onClick={() => sendCommand('ARM')} active={isArmed} label={isArmed ? "Armed" : "Arm"} icon={Play} color="amber" />
-           <ControlButton onClick={() => sendCommand('DISARM')} label="Disarm" icon={Square} color="rose" />
+      {/* 1. Fleet / Drone Selector */}
+      <div className="shrink-0">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Active Drone</div>
+        <div className="grid grid-cols-3 gap-1.5">
+          {Object.entries(fleet).map(([id, data]) => {
+            const bat = data?.drone_state?.battery_percentage ?? 0
+            const isActive = id === activeDroneId
+            const isOnline = data?.is_connected ?? false
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveDroneId(id)}
+                className={`flex flex-col items-center py-2 px-1 rounded-md border text-[9px] font-bold transition-all ${
+                  isActive 
+                    ? 'bg-agri-primary/20 border-agri-primary text-agri-primary' 
+                    : 'bg-gray-700/20 border-gray-700 text-gray-400 hover:border-gray-500'
+                }`}
+              >
+                <span className="font-mono">{id.replace('UAV_', 'UAV ')}</span>
+                <span className={`mt-0.5 ${bat > 20 ? 'text-gray-500' : 'text-red-500'}`}>{bat}%</span>
+                <div className={`mt-1 w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-agri-secondary' : 'bg-gray-600'}`} />
+              </button>
+            )
+          })}
         </div>
-      </InspectorSection>
-
-      <InspectorSection title="Transform (Flight FCU)">
-        <div className="flex flex-col gap-3 w-full">
-           <div className="flex gap-2">
-             <ControlButton onClick={() => sendCommand('TAKEOFF')} disabled={altitude > 1.0} label="Takeoff" icon={ArrowUp} color="cyan" />
-             <ControlButton onClick={() => sendCommand('RTL')} label="Home" icon={Home} color="cyan" />
-           </div>
-           
-           <div className="flex flex-col gap-1.5">
-             <div className="flex justify-between items-center px-1">
-               <span className="text-[8px] text-neutral-500 font-bold uppercase">Throttle Sensitivity</span>
-               <span className="text-[9px] text-emerald-500 font-mono font-bold">{forwardSpeed}%</span>
-             </div>
-             <input 
-               type="range" min="10" max="500" value={forwardSpeed} 
-               onChange={(e) => setSettings({ forwardSpeed: parseInt(e.target.value) })}
-               className="w-full accent-emerald-500 h-1.5 bg-neutral-800 rounded-lg appearance-none cursor-pointer"
-             />
-           </div>
-        </div>
-      </InspectorSection>
-
-      <InspectorSection title="Manual Override (Controls)">
-        <div className="flex flex-col gap-4 w-full">
-           {/* Navigation Grid Style */}
-           <div className="grid grid-cols-3 gap-1.5 px-6">
-              <div />
-              <button onMouseDown={() => handleControlStart('PITCH_FORWARD')} onMouseUp={() => handleControlEnd('PITCH_FORWARD')} className="aspect-square bg-neutral-800 border border-neutral-700 flex items-center justify-center hover:bg-neutral-700 transition-colors"><ArrowUp size={14} /></button>
-              <div />
-              <button onMouseDown={() => handleControlStart('ROLL_LEFT')} onMouseUp={() => handleControlEnd('ROLL_LEFT')} className="aspect-square bg-neutral-800 border border-neutral-700 flex items-center justify-center hover:bg-neutral-700 transition-colors"><ArrowUp size={14} className="-rotate-90" /></button>
-              <div className="flex items-center justify-center"><div className="w-1.5 h-1.5 bg-emerald-500/40 rounded-full" /></div>
-              <button onMouseDown={() => handleControlStart('ROLL_RIGHT')} onMouseUp={() => handleControlEnd('ROLL_RIGHT')} className="aspect-square bg-neutral-800 border border-neutral-700 flex items-center justify-center hover:bg-neutral-700 transition-colors"><ArrowUp size={14} className="rotate-90" /></button>
-              <div />
-              <button onMouseDown={() => handleControlStart('PITCH_BACK')} onMouseUp={() => handleControlEnd('PITCH_BACK')} className="aspect-square bg-neutral-800 border border-neutral-700 flex items-center justify-center hover:bg-neutral-700 transition-colors"><ArrowUp size={14} className="rotate-180" /></button>
-              <div />
-           </div>
-
-           <div className="bg-neutral-800/30 p-2 rounded-sm border border-neutral-800">
-              <span className="text-[7px] font-black text-neutral-500 uppercase tracking-widest block mb-2 text-center underline decoration-emerald-500/40">Z-Axis / Altitude Engine</span>
-              <div className="flex gap-2">
-                 <button onMouseDown={() => handleControlStart('ALT_UP')} onMouseUp={() => handleControlEnd('ALT_UP')} className="flex-1 py-1 bg-neutral-800 border border-neutral-700 text-[10px] font-black hover:bg-neutral-700">CLIMB (+)</button>
-                 <button onMouseDown={() => handleControlStart('ALT_DOWN')} onMouseUp={() => handleControlEnd('ALT_DOWN')} className="flex-1 py-1 bg-neutral-800 border border-neutral-700 text-[10px] font-black hover:bg-neutral-700">DESC (-)</button>
-              </div>
-           </div>
-        </div>
-      </InspectorSection>
-
-      <InspectorSection title="Project Management">
-        <div className="flex flex-col gap-2 w-full">
-           <ControlButton onClick={() => setShowMap(!showMap)} active={showMap} label="Tactical Radar" icon={Satellite} color="emerald" />
-           <ControlButton onClick={() => setShowAnalytics(!showAnalytics)} active={showAnalytics} label="Black Box Logs" icon={Activity} color="emerald" />
-        </div>
-      </InspectorSection>
-
-      <div className="mt-auto p-4 border-t border-neutral-800 bg-neutral-950/20">
-         <button 
-           onClick={() => sendCommand('EMERGENCY_STOP')}
-           className="w-full py-2 bg-rose-950/40 text-rose-500 border border-rose-900/50 rounded-sm text-[10px] font-black uppercase tracking-widest hover:bg-rose-600 hover:text-white transition-all shadow-sm"
-         >
-           ABORT MISSION (E-STOP)
-         </button>
       </div>
 
-      {/* ANALYTICS MODAL OVERLAY */}
-      {showAnalytics && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/95 p-12 transition-all">
-           <div className="w-full max-w-4xl bg-neutral-900 border border-neutral-800 shadow-2xl flex flex-col p-6 pointer-events-auto">
-              <div className="flex justify-between items-center mb-6 border-b border-neutral-800 pb-4">
-                 <h2 className="text-lg font-black text-white uppercase tracking-widest">Black Box Telemetry</h2>
-                 <button onClick={() => setShowAnalytics(false)} className="px-4 py-1 bg-neutral-800 border border-neutral-700 text-neutral-300 text-[10px] uppercase font-bold hover:bg-neutral-700 hover:text-white transition-all">Close</button>
+      {/* Divider */}
+      <div className="border-t border-gray-700/60 shrink-0" />
+
+      {/* 2. Battery Status */}
+      <div className="shrink-0">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Battery Status</div>
+        <div className="border border-gray-600 p-3 relative text-xs bg-black/20 rounded-sm">
+          <div className="flex justify-between items-center text-gray-300 mb-2">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-3 border border-gray-400 rounded-sm p-[1px] relative">
+                <div className="absolute -right-1 top-0.5 w-0.5 h-1.5 bg-gray-400" />
+                <div className={`h-full transition-all ${battery > 20 ? 'bg-agri-primary' : 'bg-red-500 animate-pulse'}`} style={{ width: `${battery}%` }} />
               </div>
-              <div className="h-96">
-                <TelemetryGraph />
-              </div>
-           </div>
+              <span className="font-bold text-sm">{battery}%</span>
+            </div>
+            <span className="text-gray-500">Main LiPo</span>
+            <span className="text-gray-500 border-l border-gray-700 pl-2">27°C</span>
+          </div>
+          <div className="w-full h-1 bg-gray-700 rounded-full">
+            <div className={`h-full rounded-full transition-all ${battery > 50 ? 'bg-agri-secondary' : battery > 20 ? 'bg-agri-primary' : 'bg-red-500'}`} style={{ width: `${battery}%` }} />
+          </div>
         </div>
-      )}
+      </div>
+
+      {/* 3. Live Stats Strip */}
+      <div className="grid grid-cols-2 gap-2 shrink-0">
+        <div className="bg-black/20 border border-gray-700/50 rounded-md p-2 flex flex-col">
+          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Altitude</span>
+          <span className="text-agri-secondary font-bold text-base">{altitude.toFixed(1)}<span className="text-[9px] text-gray-500 ml-1">m</span></span>
+        </div>
+        <div className="bg-black/20 border border-gray-700/50 rounded-md p-2 flex flex-col">
+          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Mode</span>
+          <span className={`font-bold text-sm ${isArmed ? 'text-agri-primary' : 'text-gray-400'}`}>{isArmed ? 'ARMED' : 'IDLE'}</span>
+        </div>
+      </div>
+
+      {/* Divider */}
+      <div className="border-t border-gray-700/60 shrink-0" />
+
+      {/* 4. Master Control */}
+      <div className="shrink-0">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Master Control</div>
+        <div className="flex gap-2">
+          <button 
+            onClick={() => sendCommand('ARM')} 
+            className={`flex-1 py-3 text-xs font-bold rounded-md transition-colors border ${isArmed ? 'bg-agri-primary text-agri-bg border-agri-primary shadow-[0_0_12px_rgba(255,140,66,0.4)]' : 'bg-gray-700/30 text-gray-400 border-gray-600 hover:bg-gray-700'}`}
+          >
+            <Play size={14} className="inline mr-1.5" /> {isArmed ? 'ARMED' : 'ARM'}
+          </button>
+          <button 
+            onClick={() => sendCommand('DISARM')} 
+            className="flex-1 py-3 text-xs font-bold rounded-md bg-gray-700/30 text-red-400 border border-gray-600 hover:bg-red-500/20 transition-colors"
+          >
+            <Square size={14} className="inline mr-1.5" /> DISARM
+          </button>
+        </div>
+      </div>
+
+      {/* 5. Autopilot FCU */}
+      <div className="shrink-0">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+          <Navigation2 size={12} className="text-agri-secondary" /> Autopilot FCU
+        </div>
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          <button 
+            onClick={() => sendCommand('TAKEOFF')}
+            className="bg-gray-700/30 hover:bg-gray-700/50 text-gray-300 border border-gray-600 rounded-md py-3 text-[10px] font-bold transition-colors flex flex-col items-center gap-1"
+          >
+            <ArrowUp size={14} /> TAKEOFF
+          </button>
+          <button 
+            onClick={() => sendCommand('RTL')}
+            className="bg-gray-700/30 hover:bg-gray-700/50 text-gray-300 border border-gray-600 rounded-md py-3 text-[10px] font-bold transition-colors flex flex-col items-center gap-1"
+          >
+            <Home size={14} /> RTL
+          </button>
+        </div>
+        <button 
+          onClick={() => sendCommand('SET_MODE', { mode: 'GUIDED' })}
+          className="w-full bg-agri-secondary/20 hover:bg-agri-secondary/30 text-agri-secondary rounded-md py-3 text-[10px] font-bold transition-colors border border-agri-secondary/40 flex items-center justify-center gap-2"
+        >
+          <ShieldCheck size={14} /> GUIDED MISSION
+        </button>
+      </div>
+
+      {/* 6. Speed Settings */}
+      <div className="shrink-0">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
+          <Gauge size={12} /> Speed Controls
+        </div>
+        <div className="space-y-2">
+          <div>
+            <div className="flex justify-between text-[9px] text-gray-500 mb-1">
+              <span>Forward Speed</span>
+              <span className="text-agri-primary font-mono">{settings.forwardSpeed}</span>
+            </div>
+            <input type="range" min={10} max={500} value={settings.forwardSpeed} 
+              onChange={(e) => setSettings({ forwardSpeed: Number(e.target.value) })}
+              className="w-full accent-agri-primary h-1 cursor-pointer" />
+          </div>
+          <div>
+            <div className="flex justify-between text-[9px] text-gray-500 mb-1">
+              <span>Climb Speed</span>
+              <span className="text-agri-primary font-mono">{settings.climbSpeed}</span>
+            </div>
+            <input type="range" min={10} max={500} value={settings.climbSpeed} 
+              onChange={(e) => setSettings({ climbSpeed: Number(e.target.value) })}
+              className="w-full accent-agri-primary h-1 cursor-pointer" />
+          </div>
+        </div>
+      </div>
+
+      {/* Spacer */}
+      <div className="flex-1" />
+
+      {/* 7. Emergency Stop — always at bottom */}
+      <button 
+        onClick={() => sendCommand('DISARM')}
+        className="shrink-0 w-full py-4 bg-red-950/40 border-2 border-red-600/60 text-red-500 text-xs font-black uppercase tracking-widest rounded-md hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(220,38,38,0.1)]"
+      >
+        <AlertOctagon size={16} /> EMERGENCY STOP
+      </button>
     </div>
   )
 }
