@@ -2,17 +2,21 @@ from pymavlink import mavutil
 import asyncio
 import time
 import math
+import os
+from dotenv import load_dotenv
 from app.schemas.telemetry import TelemetryData, DroneState, GPSPoint, Orientation, NavigationTarget
 
 import sys
 import io
 
+load_dotenv()
+
 sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
 sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
 
 class MAVLinkBridge:
-    def __init__(self, connection_url="udpin:0.0.0.0:14551"):
-        self.connection_url = connection_url
+    def __init__(self, connection_url=None):
+        self.connection_url = connection_url or os.getenv("MAVLINK_URL", "udpin:0.0.0.0:14551")
         self.master = None
         # Use a thread-safe lock for accessing latest_data
         self._lock = asyncio.Lock()
