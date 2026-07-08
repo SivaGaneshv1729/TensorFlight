@@ -115,7 +115,10 @@ const useTelemetryStore = create((set) => ({
   setCameraMode: (cameraMode) => set({ cameraMode }),
   
   activeCommands: [],
-  setActiveCommands: (activeCommands) => set({ activeCommands })
+  setActiveCommands: (activeCommands) => set({ activeCommands }),
+
+  mainViewId: '3d', // '3d', 'front', 'back', 'nadir'
+  setMainViewId: (mainViewId) => set({ mainViewId })
 }))
 
 export default useTelemetryStore
