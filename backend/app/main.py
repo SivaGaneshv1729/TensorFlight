@@ -7,6 +7,7 @@ from app.models.database import connect_db, close_db
 from app.core.mavlink import mav_bridge
 from app.core.video_pipeline import video_manager
 from app.api.websockets import broadcaster, broadcast_telemetry_loop, persistence_loop
+from app.ai.analysis_engine import analysis_engine
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -18,6 +19,9 @@ async def lifespan(app: FastAPI):
     
     # Startup: Initialize Video Manager
     video_manager.start()
+
+    # Startup: Start the real AI analysis engine (background thread at 4fps)
+    analysis_engine.start()
     
     # Start the MAVLink, broadcast, and persistence loops as background tasks
     asyncio.create_task(mav_bridge.listen_loop())
