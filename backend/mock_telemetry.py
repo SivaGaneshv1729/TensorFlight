@@ -237,7 +237,7 @@ async def simulate_fleet():
                         "drones": fleet_payload
                     }))
                     
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.10)  # 10fps - halved from 20fps for CPU savings
         except:
             await asyncio.sleep(2)
 
