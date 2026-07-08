@@ -4,6 +4,12 @@ import time
 import math
 from app.schemas.telemetry import TelemetryData, DroneState, GPSPoint, Orientation, NavigationTarget
 
+import sys
+import io
+
+sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+sys.stderr = io.TextIOWrapper(sys.stderr.buffer, encoding='utf-8')
+
 class MAVLinkBridge:
     def __init__(self, connection_url="udpin:0.0.0.0:14551"):
         self.connection_url = connection_url
