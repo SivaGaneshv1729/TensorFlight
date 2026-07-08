@@ -8,3 +8,5 @@ motor
 pydantic
 python-multipart
 httpx
+scikit-learn
+scipy
