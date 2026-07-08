@@ -1,6 +1,6 @@
 import React, { useMemo, useRef } from 'react'
 import * as THREE from 'three'
-import { Sky } from '@react-three/drei'
+import { Sky, useTexture } from '@react-three/drei'
 
 // Utility for deterministic randomness
 function seedRandom(i, seed) {
@@ -8,81 +8,133 @@ function seedRandom(i, seed) {
   return x - Math.floor(x);
 }
 
-// PERF: Reduced from 600 to 200 obstacles; shadows disabled
-const OBSTACLES = []
-for (let i = 0; i < 200; i++) {
-  const x = (seedRandom(i, 1) - 0.5) * 600;
-  const z = (seedRandom(i, 2) - 0.5) * 600;
-  if (Math.abs(x) < 40 && Math.abs(z) < 40) continue;
-  // Generate Barns and Silos
-  const isSilo = seedRandom(i, 3) > 0.7;
-  const width = isSilo ? 12 : 30 + seedRandom(i, 4) * 20;
-  const height = isSilo ? 40 + seedRandom(i, 5) * 30 : 12 + seedRandom(i, 6) * 10;
-  const depth = isSilo ? 12 : 20 + seedRandom(i, 7) * 15;
-  OBSTACLES.push({ position: [x, height / 2 - 0.6, z], args: [width, height, depth] })
+// Village Generation
+const HOUSES = []
+const TREES = []
+for (let i = 0; i < 400; i++) {
+  const x = (seedRandom(i, 1) - 0.5) * 800;
+  const z = (seedRandom(i, 2) - 0.5) * 800;
+  if (Math.abs(x) < 50 && Math.abs(z) < 50) continue; // Clear landing pad area
+
+  const isTree = seedRandom(i, 3) > 0.35;
+  if (isTree) {
+    const trunkHeight = 6 + seedRandom(i, 4) * 6;
+    const trunkRadius = 1.5 + seedRandom(i, 5) * 1;
+    const canopyRadius = 6 + seedRandom(i, 6) * 6;
+    TREES.push({
+      trunkPos: [x, trunkHeight / 2 - 0.5, z],
+      trunkScale: [trunkRadius, trunkHeight, trunkRadius],
+      canopyPos: [x, trunkHeight + canopyRadius / 2 - 2, z],
+      canopyScale: [canopyRadius, canopyRadius * 0.8, canopyRadius]
+    })
+  } else {
+    const width = 15 + seedRandom(i, 4) * 15;
+    const depth = 15 + seedRandom(i, 5) * 15;
+    const wallHeight = 10 + seedRandom(i, 6) * 8;
+    const roofHeight = 8 + seedRandom(i, 7) * 4;
+    HOUSES.push({
+      wallPos: [x, wallHeight / 2 - 0.5, z],
+      wallScale: [width, wallHeight, depth],
+      roofPos: [x, wallHeight - 0.5 + roofHeight / 2, z],
+      // Roof slightly wider than walls
+      roofScale: [width + 2, roofHeight, depth + 2]
+    })
+  }
 }
 
-// PERF: Pre-generate instanced mesh matrices at module level — zero per-render overhead
-const INSTANCE_MATRIX = (() => {
-  const dummy = new THREE.Object3D()
-  const matrices = OBSTACLES.map((obs) => {
-    dummy.position.set(...obs.position)
-    dummy.scale.set(obs.args[0], obs.args[1], obs.args[2])
-    dummy.updateMatrix()
-    return dummy.matrix.clone()
-  })
-  return matrices
-})()
+// Pre-compute instance matrices
+const HOUSE_WALL_MATRICES = []
+const HOUSE_ROOF_MATRICES = []
+const TREE_TRUNK_MATRICES = []
+const TREE_CANOPY_MATRICES = []
 
-function ObstacleInstances() {
-  const meshRef = useRef()
-  // Apply matrices once on mount
+const dummy = new THREE.Object3D()
+HOUSES.forEach(h => {
+  dummy.position.set(...h.wallPos)
+  dummy.scale.set(...h.wallScale)
+  dummy.updateMatrix()
+  HOUSE_WALL_MATRICES.push(dummy.matrix.clone())
+
+  dummy.position.set(...h.roofPos)
+  dummy.scale.set(...h.roofScale)
+  // Rotate cone to look like a pitched roof (4 sides)
+  dummy.rotation.set(0, Math.PI / 4, 0)
+  dummy.updateMatrix()
+  HOUSE_ROOF_MATRICES.push(dummy.matrix.clone())
+  dummy.rotation.set(0, 0, 0) // reset
+})
+
+TREES.forEach(t => {
+  dummy.position.set(...t.trunkPos)
+  dummy.scale.set(...t.trunkScale)
+  dummy.updateMatrix()
+  TREE_TRUNK_MATRICES.push(dummy.matrix.clone())
+
+  dummy.position.set(...t.canopyPos)
+  dummy.scale.set(...t.canopyScale)
+  dummy.updateMatrix()
+  TREE_CANOPY_MATRICES.push(dummy.matrix.clone())
+})
+
+function Village() {
+  const wallRef = useRef()
+  const roofRef = useRef()
+  const trunkRef = useRef()
+  const canopyRef = useRef()
+
   React.useEffect(() => {
-    if (!meshRef.current) return
-    INSTANCE_MATRIX.forEach((matrix, i) => {
-      meshRef.current.setMatrixAt(i, matrix)
-    })
-    meshRef.current.instanceMatrix.needsUpdate = true
+    if (!wallRef.current) return
+    HOUSE_WALL_MATRICES.forEach((m, i) => wallRef.current.setMatrixAt(i, m))
+    HOUSE_ROOF_MATRICES.forEach((m, i) => roofRef.current.setMatrixAt(i, m))
+    TREE_TRUNK_MATRICES.forEach((m, i) => trunkRef.current.setMatrixAt(i, m))
+    TREE_CANOPY_MATRICES.forEach((m, i) => canopyRef.current.setMatrixAt(i, m))
+
+    wallRef.current.instanceMatrix.needsUpdate = true
+    roofRef.current.instanceMatrix.needsUpdate = true
+    trunkRef.current.instanceMatrix.needsUpdate = true
+    canopyRef.current.instanceMatrix.needsUpdate = true
   }, [])
 
   return (
-    <instancedMesh ref={meshRef} args={[null, null, OBSTACLES.length]}>
-      <boxGeometry args={[1, 1, 1]} />
-      {/* Rustic red/brown color for barns/silos */}
-      <meshStandardMaterial color="#6b2b2b" roughness={0.9} metalness={0.1} />
-    </instancedMesh>
+    <group>
+      {/* Houses */}
+      <instancedMesh ref={wallRef} args={[null, null, HOUSES.length]}>
+        <boxGeometry args={[1, 1, 1]} />
+        <meshStandardMaterial color="#f8fafc" roughness={0.9} metalness={0.1} />
+      </instancedMesh>
+      <instancedMesh ref={roofRef} args={[null, null, HOUSES.length]}>
+        <coneGeometry args={[0.707, 1, 4]} /> {/* 4-sided cone acts as a pitched roof */}
+        <meshStandardMaterial color="#881337" roughness={0.8} />
+      </instancedMesh>
+
+      {/* Trees */}
+      <instancedMesh ref={trunkRef} args={[null, null, TREES.length]}>
+        <cylinderGeometry args={[1, 1, 1, 8]} />
+        <meshStandardMaterial color="#451a03" roughness={0.9} />
+      </instancedMesh>
+      <instancedMesh ref={canopyRef} args={[null, null, TREES.length]}>
+        <sphereGeometry args={[1, 12, 12]} />
+        <meshStandardMaterial color="#166534" roughness={0.9} />
+      </instancedMesh>
+    </group>
   )
 }
 
 function Terrain() {
-  const gridTexture = useMemo(() => {
-    const canvas = document.createElement('canvas')
-    canvas.width = 256
-    canvas.height = 256
-    const ctx = canvas.getContext('2d')
-    
-    // Rich soil background
-    ctx.fillStyle = '#2d1c15'
-    ctx.fillRect(0, 0, 256, 256)
-    
-    // Lush green crop rows
-    ctx.fillStyle = '#166534'
-    for (let i = 0; i <= 256; i += 32) {
-      // Add slight organic variation
-      ctx.fillRect(0, i + 4, 256, 14)
-    }
-    
-    const texture = new THREE.CanvasTexture(canvas)
+  const texture = useTexture('/field_texture.png')
+  
+  // Configure texture for seamless tiling
+  React.useEffect(() => {
     texture.wrapS = THREE.RepeatWrapping
     texture.wrapT = THREE.RepeatWrapping
-    texture.repeat.set(120, 120) // Tile more densely
-    return texture
-  }, [])
+    texture.repeat.set(100, 100) // Scale the 1024x1024 texture across the huge 4000x4000 plane
+    texture.needsUpdate = true
+  }, [texture])
 
   return (
     <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -0.6, 0]}>
       <planeGeometry args={[4000, 4000]} />
-      <meshStandardMaterial map={gridTexture} roughness={1} metalness={0} />
+      <meshStandardMaterial map={texture} roughness={1} metalness={0} />
     </mesh>
   )
 }
@@ -125,9 +177,11 @@ export default function Environment({ simplified = false, showBackground = true 
         />
       )}
 
-      <Terrain />
+      <React.Suspense fallback={null}>
+        <Terrain />
+      </React.Suspense>
       <LandingPad />
-      <ObstacleInstances />
+      <Village />
     </>
   )
 }
