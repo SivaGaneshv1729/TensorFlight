@@ -1,43 +1,47 @@
 # AgriHUD-AI: Precision Agriculture Drone Interface
 
-AgriHUD-AI is a high-performance, web-based Ground Control Station (GCS) and Head-Up Display (HUD) for precision agriculture. It provides real-time telemetry visualization, 3D holographic environment mapping, and autonomous mission planning capabilities.
+AgriHUD-AI is a high-performance, web-based Ground Control Station (GCS) and Head-Up Display (HUD) built for precision agriculture. It combines 3D holographic environment mapping, real-time ML-driven crop analysis, and drone fleet management into a single, cohesive industrial dashboard.
 
 ## 🚀 Key Features
 
-- **High-Fidelity Glass Cockpit**: A professional-grade, zero-gap UI featuring a Primary Flight Display (PFD) with realistic attitude indicators, rolling tapes, and a structured Flight Management System (FMS).
-- **Single-Canvas 3D Engine**: Highly optimized WebGL architecture using `@react-three/fiber` for rendering multiple synchronized FPV viewports (Front, Rear, Ground) at 60+ FPS without duplicate memory overhead.
-- **Realistic Simulated Environment**: Procedurally generated terrain, mountain ranges, and deterministic vegetation (200+ trees, farm complexes) for immersive flight simulation and obstacle awareness.
-- **Tactical Radar & Mission Planning**: Interactive 2D Map (via Leaflet) styled as a tactical radar. It mathematically projects 3D simulated obstacles onto GPS coordinates, allowing users to point-and-click to set autonomous `GOTO_WAYPOINT` navigation paths.
-- **MAVLink Integration**: Backend built with FastAPI, bridging WebSocket UI commands directly to ArduPilot SITL (or physical drones) via PyMAVLink.
-- **Low-Latency Video Pipeline**: Integrated OpenCV streaming with simulated health-analysis (VARI) filters.
+- **High-Fidelity Industrial Cockpit**: A zero-gap, scroll-free dashboard layout containing a Primary Flight Display (PFD) with realistic attitude indicators, rolling altitude/speed tapes, and dual-stick manual controls.
+- **Real-Time AI Crop Analysis**: Integrated Computer Vision pipeline mapping real NDVI/VARI indices directly from RGB feeds, classified by a Scikit-Learn Random Forest model (Healthy, Weed, Pest Stress, Drought Stress).
+- **Live Weather Integration**: Connects dynamically to the Open-Meteo API based on drone GPS coordinates, pulling real wind vectors, temperatures, and predicting flight safety conditions.
+- **Single-Canvas 3D Engine**: Highly optimized WebGL architecture using `@react-three/fiber` rendering multi-perspective views (Front, Rear, Downward) at 60 FPS utilizing shared geometries and instanced meshes.
+- **Multi-Drone Fleet Management**: Dynamic WebSocket broadcasting handling synchronized telemetry feeds for multiple UAVs seamlessly from a fast Python backend.
+- **Tactical Radar & Mission Planning**: Interactive 2D Leaflet map styled as a tactical radar to track drone movements and plan autonomous routes.
 
 ## 🛠️ Tech Stack
 
-- **Frontend**: React, Vite, TailwindCSS, Three.js, React-Three-Fiber, Zustand, Leaflet, Lucide-React.
-- **Backend**: Python, FastAPI, PyMAVLink, OpenCV, Motor (MongoDB).
-- **Simulation**: Custom `mock_telemetry.py` with physical flight dynamics, or Dockerized ArduPilot SITL.
+- **Frontend**: React, Vite, TailwindCSS (strict CSS Grid layout), Three.js, React-Three-Fiber, Zustand, Leaflet, Lucide-React.
+- **Backend Core**: Python, FastAPI, WebSockets.
+- **AI/ML Pipeline**: OpenCV (Video processing), NumPy (Index calculation), Scikit-Learn (Classification), Open-Meteo (Weather).
+- **Simulation**: Custom high-efficiency deterministic physics engine (`mock_telemetry.py`) bypassing SITL for rapid frontend/backend testing.
 
 ## 🏃‍♂️ Running the Project
 
-### 1. Backend (API & Telemetry)
+### 1. Backend API & AI Engine
 ```bash
 cd backend
+# Create and activate virtual environment
 python -m venv venv
-.\venv\Scripts\activate  # or `source venv/bin/activate` on Linux/Mac
+.\venv\Scripts\activate  # Windows
+# source venv/bin/activate  # Mac/Linux
+
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
-### 2. Simulator (Flight Physics)
-In a new terminal:
+### 2. Simulation Environment (Flight Physics & Drone Data)
+In a new terminal window:
 ```bash
 cd backend
 .\venv\Scripts\activate
 python mock_telemetry.py
 ```
 
-### 3. Frontend (UI)
-In a new terminal:
+### 3. Frontend UI
+In a third terminal window:
 ```bash
 cd frontend
 npm install
@@ -45,5 +49,10 @@ npm run dev
 ```
 Access the dashboard at `http://127.0.0.1:5173`.
 
-## 📜 License
+## 📜 Architecture
+
+- The backend (`AnalysisEngine`) runs the expensive crop inferences and weather fetching asynchronously, merging the `AIReport` directly into the fleet's 10Hz MAVLink stream.
+- The frontend strictly throttles React UI redraws to 8 FPS to prevent render fatigue, while the WebGL `<Canvas />` runs unimpeded at 60 FPS.
+
+## 📄 License
 MIT
