@@ -104,10 +104,10 @@ const HolographicTargetLine = memo(function HolographicTargetLine() {
 
   return (
     <group>
-      <Line points={points} color="#39FF14" lineWidth={2} transparent opacity={0.7} />
+      <Line points={points} color="#fbbf24" lineWidth={1.5} transparent opacity={0.6} dashed={true} dashSize={1} gapSize={0.5} />
       <mesh position={[tgtX, tgtY, tgtZ]}>
-        <cylinderGeometry args={[0, 1.0, 2.5, 8]} /> {/* PERF: 8 segments vs 16 */}
-        <meshBasicMaterial color="#39FF14" wireframe transparent opacity={0.5} />
+        <octahedronGeometry args={[0.6]} />
+        <meshStandardMaterial color="#fbbf24" emissive="#fbbf24" emissiveIntensity={0.5} roughness={0.2} metalness={0.8} />
       </mesh>
     </group>
   )
