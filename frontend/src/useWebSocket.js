@@ -11,46 +11,58 @@ export function sendSocketMessage(message) {
   return false;
 }
 
+// Throttle: Only push telemetry to React state at 8fps (125ms)
+// Raw WS messages can still arrive at 20fps for physics/commands
+const UI_UPDATE_INTERVAL_MS = 125;
+
 export default function useWebSocket() {
   const setTelemetry = useTelemetryStore((state) => state.setTelemetry)
   const socketRef = useRef(null)
   const reconnectCount = useRef(0)
+  const pendingDataRef = useRef(null)
+  const lastUpdateRef = useRef(0)
+  const rafRef = useRef(null)
 
   useEffect(() => {
     let timeoutId;
+
+    // Draining loop — runs via RAF, flushes pending data at ~8fps
+    const drain = () => {
+      const now = performance.now()
+      if (pendingDataRef.current && now - lastUpdateRef.current >= UI_UPDATE_INTERVAL_MS) {
+        setTelemetry(pendingDataRef.current)
+        pendingDataRef.current = null
+        lastUpdateRef.current = now
+      }
+      rafRef.current = requestAnimationFrame(drain)
+    }
+    rafRef.current = requestAnimationFrame(drain)
     
     function connect() {
       const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
       const url = `${protocol}://${window.location.host}/ws/telemetry`;
-      console.log(`🔌 Attempting WebSocket connection to ${url}...`);
       
       const socket = new WebSocket(url)
       socketRef.current = socket
       globalSocket = socket
       
       socket.onopen = () => {
-        console.log('✅ WebSocket Connected Successfully to:', url);
-        reconnectCount.current = 0; // Reset count on successful connection
+        reconnectCount.current = 0;
       };
 
       socket.onmessage = (event) => {
         try {
-          const data = JSON.parse(event.data)
-          // console.debug('📡 Telemetry data received', data);
-          setTelemetry(data)
+          // Just buffer the latest data; the drain loop will push it to React
+          pendingDataRef.current = JSON.parse(event.data)
         } catch (err) {
-          console.error('Failed to parse telemetry data:', err)
+          // Ignore parse errors silently
         }
       }
 
-      socket.onerror = (error) => {
-        console.error('WebSocket Error:', error)
-      }
+      socket.onerror = () => {} // Suppress console noise
 
       socket.onclose = (event) => {
         const backoff = Math.min(1000 * Math.pow(2, reconnectCount.current), 30000);
-        console.warn(`❌ WebSocket disconnected (code: ${event.code}). Reconnecting in ${backoff / 1000}s...`);
-        
         timeoutId = setTimeout(() => {
           reconnectCount.current++;
           connect();
@@ -61,17 +73,15 @@ export default function useWebSocket() {
     connect()
 
     return () => {
+      if (rafRef.current) cancelAnimationFrame(rafRef.current)
       if (socketRef.current) {
-        socketRef.current.onclose = null // Prevent reconnect on unmount
+        socketRef.current.onclose = null
         if (socketRef.current.readyState === WebSocket.OPEN) {
           socketRef.current.close()
         }
-        if (globalSocket === socketRef.current) {
-          globalSocket = null
-        }
+        if (globalSocket === socketRef.current) globalSocket = null
       }
       clearTimeout(timeoutId)
     }
   }, [setTelemetry])
 }
-
