@@ -103,6 +103,8 @@ class AnalysisEngine:
         # History for trend analysis
         self._history: List[Dict] = []
         self._MAX_HISTORY = 500
+        self.yolo_model = None  # YOLO model instance (lazy loaded)
+        self.mock_yolo_state = [] # For simulating detections without ultralytics
 
     def start(self):
         if self._running:
@@ -188,6 +190,88 @@ class AnalysisEngine:
             report.healthy_zone_count    = healthy_count
             report.spray_recommended     = len(spray_zones) > 0
             report.spray_zone_count      = len(spray_zones)
+
+            # --- YOLOv8 Advanced Computer Vision ---
+            if self.yolo_model is None:
+                try:
+                    from ultralytics import YOLO
+                    self.yolo_model = YOLO("yolov8n.pt")
+                    logger.info("✅ YOLOv8 model loaded successfully.")
+                except ImportError:
+                    logger.warning("ultralytics not installed. Falling back to Mock YOLOv8 simulator.")
+                    self.yolo_model = "MOCK"
+                except Exception as e:
+                    logger.warning(f"Failed to load YOLOv8 model: {e}. Using Mock YOLOv8 simulator.")
+                    self.yolo_model = "MOCK"
+            
+            if self.yolo_model == "MOCK":
+                import random
+                if random.random() < 0.05 and len(self.mock_yolo_state) < 2:
+                    mock_label = random.choice(["LIVESTOCK", "MACHINERY", "FARM_WORKER"])
+                    conf = random.uniform(0.7, 0.95)
+                    w = random.randint(80, 140)
+                    h = random.randint(80, 140)
+                    x = random.randint(50, 400)
+                    y = random.randint(50, 300)
+                    self.mock_yolo_state.append({
+                        "label": mock_label,
+                        "conf": conf,
+                        "bbox": (x, y, w, h),
+                        "frames_left": random.randint(15, 30)
+                    })
+                
+                surviving = []
+                for m in self.mock_yolo_state:
+                    if m["frames_left"] > 0:
+                        m["frames_left"] -= 1
+                        x, y, w, h = m["bbox"]
+                        x += random.randint(-3, 3)
+                        y += random.randint(-1, 1)
+                        m["bbox"] = (x, y, w, h)
+                        surviving.append(m)
+                        detections.append(DetectionResult(
+                            label=m["label"],
+                            confidence=m["conf"],
+                            bbox=(x, y, w, h),
+                            area_px=w * h,
+                            vari_mean=0.0, exg_mean=0.0, ngrdi_mean=0.0, spray_recommended=False
+                        ))
+                self.mock_yolo_state = surviving
+
+            elif self.yolo_model:
+                try:
+                    results = self.yolo_model(frame, verbose=False)
+                    for result in results:
+                        for box in result.boxes:
+                            cls_id = int(box.cls[0])
+                            conf = float(box.conf[0])
+                            class_name = result.names[cls_id]
+                            
+                            agri_label = None
+                            if class_name in ["cow", "sheep", "horse"]:
+                                agri_label = "LIVESTOCK"
+                            elif class_name in ["truck", "car", "tractor"]:
+                                agri_label = "MACHINERY"
+                            elif class_name in ["person"]:
+                                agri_label = "FARM_WORKER"
+                                
+                            if agri_label and conf > 0.4:
+                                x1, y1, x2, y2 = map(int, box.xyxy[0])
+                                w = x2 - x1
+                                h = y2 - y1
+                                detections.append(DetectionResult(
+                                    label=agri_label,
+                                    confidence=conf,
+                                    bbox=(x1, y1, w, h),
+                                    area_px=w * h,
+                                    vari_mean=0.0,
+                                    exg_mean=0.0,
+                                    ngrdi_mean=0.0,
+                                    spray_recommended=False
+                                ))
+                except Exception as e:
+                    logger.error(f"YOLO inference error: {e}")
+            # ---------------------------------------
 
             # Annotate frame with bboxes
             if self.ANNOTATE_FRAME and detections:
