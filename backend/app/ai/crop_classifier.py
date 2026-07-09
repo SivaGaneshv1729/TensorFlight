@@ -45,6 +45,9 @@ LABEL_COLORS = {
     "WEED":            (0, 0, 255),     # Red  (BGR)
     "PEST_STRESS":     (0, 255, 255),   # Yellow
     "DROUGHT_STRESS":  (0, 140, 255),   # Orange
+    "LIVESTOCK":       (255, 0, 255),   # Magenta
+    "MACHINERY":       (255, 100, 100), # Light Blue
+    "FARM_WORKER":     (255, 255, 0),   # Cyan
 }
 
 
