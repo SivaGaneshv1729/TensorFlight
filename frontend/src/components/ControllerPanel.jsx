@@ -6,9 +6,9 @@ import { sendSocketMessage } from '../useWebSocket'
 function DPad({ label, commands, onStart, onEnd }) {
   // commands: { up, down, left, right }
   return (
-    <div className="flex flex-col items-center gap-1">
-      <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mb-1">{label}</span>
-      <div className="relative w-28 h-28">
+    <div className="flex flex-col items-center gap-0.5">
+      <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest mb-0.5">{label}</span>
+      <div className="relative w-20 h-20">
         {/* Up */}
         <button
           onMouseDown={() => onStart(commands.up)}
@@ -16,7 +16,7 @@ function DPad({ label, commands, onStart, onEnd }) {
           onMouseLeave={() => onEnd(commands.up)}
           onTouchStart={(e) => { e.preventDefault(); onStart(commands.up) }}
           onTouchEnd={() => onEnd(commands.up)}
-          className="absolute top-0 left-1/2 -translate-x-1/2 w-9 h-9 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-7 h-7 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
         >
           <ChevronUp size={18} />
         </button>
@@ -27,7 +27,7 @@ function DPad({ label, commands, onStart, onEnd }) {
           onMouseLeave={() => onEnd(commands.down)}
           onTouchStart={(e) => { e.preventDefault(); onStart(commands.down) }}
           onTouchEnd={() => onEnd(commands.down)}
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-9 h-9 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
+          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-7 h-7 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
         >
           <ChevronDown size={18} />
         </button>
@@ -38,7 +38,7 @@ function DPad({ label, commands, onStart, onEnd }) {
           onMouseLeave={() => onEnd(commands.left)}
           onTouchStart={(e) => { e.preventDefault(); onStart(commands.left) }}
           onTouchEnd={() => onEnd(commands.left)}
-          className="absolute left-0 top-1/2 -translate-y-1/2 w-9 h-9 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
+          className="absolute left-0 top-1/2 -translate-y-1/2 w-7 h-7 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
         >
           <ChevronLeft size={18} />
         </button>
@@ -49,7 +49,7 @@ function DPad({ label, commands, onStart, onEnd }) {
           onMouseLeave={() => onEnd(commands.right)}
           onTouchStart={(e) => { e.preventDefault(); onStart(commands.right) }}
           onTouchEnd={() => onEnd(commands.right)}
-          className="absolute right-0 top-1/2 -translate-y-1/2 w-9 h-9 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
+          className="absolute right-0 top-1/2 -translate-y-1/2 w-7 h-7 bg-gray-700/50 hover:bg-agri-primary/30 active:bg-agri-primary border border-gray-600 rounded-md flex items-center justify-center text-gray-400 hover:text-white transition-all select-none touch-none"
         >
           <ChevronRight size={18} />
         </button>
@@ -90,12 +90,12 @@ export default function ControllerPanel() {
   }
 
   return (
-    <div className="h-full flex flex-col font-sans min-h-0 gap-3 items-center justify-center">
+    <div className="h-full flex flex-col font-sans min-h-0 gap-1.5 items-center justify-center">
       
       <div className="text-[9px] text-gray-500 font-bold uppercase tracking-widest self-start">Manual Override</div>
       
       {/* Dual D-Pad Layout */}
-      <div className="flex gap-4 items-center justify-center flex-1 w-full">
+      <div className="flex gap-2 items-center justify-center flex-1 w-full">
         {/* Left D-Pad: Throttle + Yaw */}
         <DPad
           label="Throttle / Yaw"
@@ -105,7 +105,7 @@ export default function ControllerPanel() {
         />
 
         {/* Divider */}
-        <div className="h-16 w-px bg-gray-700/50 shrink-0" />
+        <div className="h-12 w-px bg-gray-700/50 shrink-0" />
 
         {/* Right D-Pad: Pitch + Roll */}
         <DPad
