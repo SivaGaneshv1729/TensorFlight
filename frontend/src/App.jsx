@@ -68,42 +68,42 @@ function App() {
   const mainViewId = useTelemetryStore(s => s.mainViewId)
   
   return (
-    <div ref={container} className="h-screen w-screen bg-[#282a2e] flex flex-col font-sans text-gray-200 overflow-hidden">
+    <div ref={container} className="h-screen w-screen bg-[#0a0a0c] flex flex-col font-sans text-gray-300 overflow-hidden">
        {/* 1. TOP NAVBAR */}
        <TopNavbar activeTab={activeTab} setActiveTab={setActiveTab} />
        
        {/* 2. MAIN CONTENT AREA */}
        {activeTab === 'Controler' && (
-         <div className="flex-1 p-4 grid grid-cols-12 grid-rows-10 gap-4 min-h-0 bg-[#282a2e] overflow-hidden">
+         <div className="flex-1 p-2 grid grid-cols-12 grid-rows-10 gap-2 min-h-0 bg-[#0a0a0c] overflow-hidden">
             
             {/* Top Left (Drone Views) */}
-            <div className="col-span-2 row-span-7 bg-[#34373a] rounded-lg p-3 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
+            <div className="col-span-2 row-span-7 bg-[#141517] rounded-lg p-2 flex flex-col shadow-lg border border-gray-800/50 overflow-hidden min-h-0">
                <div className="text-white font-bold mb-3 pl-1 shrink-0">Camera Feeds</div>
                <DroneViews />
             </div>
 
             {/* Top Center (Main Viewport) */}
-            <div className="col-span-7 row-span-7 bg-[#1c1d21] rounded-lg relative overflow-hidden flex flex-col shadow-lg border border-gray-700/30 min-h-0">
+            <div className="col-span-7 row-span-7 bg-black rounded-lg relative overflow-hidden flex flex-col shadow-lg border border-gray-800/50 min-h-0">
                {React.createElement(VIEW_CONFIGS[mainViewId].Component)}
             </div>
 
             {/* Top Right (Sidebar - Master Controls) */}
-            <div className="col-span-3 row-span-7 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
+            <div className="col-span-3 row-span-7 bg-[#141517] rounded-lg p-3 flex flex-col shadow-lg border border-gray-800/50 overflow-hidden min-h-0">
                <Sidebar />
             </div>
 
             {/* Bottom Left (Telemetry & Diagnostics) */}
-            <div className="col-span-5 row-span-3 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
+            <div className="col-span-5 row-span-3 bg-[#141517] rounded-lg p-3 flex flex-col shadow-lg border border-gray-800/50 overflow-hidden min-h-0">
                <TelemetryPanel />
             </div>
 
             {/* Bottom Middle (Altitude/Velocity/Settings) */}
-            <div className="col-span-4 row-span-3 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
+            <div className="col-span-4 row-span-3 bg-[#141517] rounded-lg p-3 flex flex-col shadow-lg border border-gray-800/50 overflow-hidden min-h-0">
                <SettingsPanel />
             </div>
 
             {/* Bottom Right (Controller D-Pad) */}
-            <div className="col-span-3 row-span-3 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
+            <div className="col-span-3 row-span-3 bg-[#141517] rounded-lg p-3 flex flex-col shadow-lg border border-gray-800/50 overflow-hidden min-h-0">
                <ControllerPanel />
             </div>
 
@@ -122,10 +122,10 @@ function App() {
          <div className="flex-1 p-8 overflow-y-auto">
             <h1 className="text-3xl text-white font-bold mb-8">System Overview</h1>
             <div className="grid grid-cols-2 gap-8">
-               <div className="bg-[#34373a] rounded-lg p-6 h-96">
+               <div className="bg-[#141517] rounded-lg p-4 h-96 border border-gray-800/50">
                   <TelemetryPanel />
                </div>
-               <div className="bg-[#34373a] rounded-lg p-6 h-96">
+               <div className="bg-[#141517] rounded-lg p-4 h-96 border border-gray-800/50">
                   <SettingsPanel />
                </div>
             </div>
