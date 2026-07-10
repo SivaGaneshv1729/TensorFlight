@@ -77,7 +77,11 @@ class DroneSimulator:
             
             # Simplistic RTL/Waypoint logic (overrides manual)
             elif self.is_rtl:
-                self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 15.0}
+                dist_home = math.sqrt(((self.home_lat - self.lat)*111319)**2 + ((self.home_lon - self.lon)*111319*math.cos(math.radians(self.lat)))**2)
+                if dist_home > 2.0:
+                    self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 15.0}
+                else:
+                    self.target_wp = {"lat": self.home_lat, "lon": self.home_lon, "alt": 0.0}
 
             # Pop next mission waypoint if we don't have a target
             if not self.target_wp and self.mission_waypoints and not self.active_inputs and not self.is_rtl:
@@ -89,12 +93,11 @@ class DroneSimulator:
                 dist = math.sqrt(dist_lat**2 + dist_lon**2)
                 
                 if dist < 1.0 and abs(self.alt - self.target_wp.get('alt', 15)) < 1.0:
-                    if self.is_rtl:
-                        target_alt_vel = -0.5
-                        if self.alt <= 0.1:
-                            self.is_armed = False
-                            self.is_rtl = False
-                            target_alt_vel = 0
+                    if self.is_rtl and self.target_wp.get('alt', 15) == 0.0:
+                        self.is_armed = False
+                        self.is_rtl = False
+                        target_alt_vel = 0
+                        self.target_wp = None
                     elif self.mission_waypoints:
                         self.target_wp = self.mission_waypoints.pop(0)
                     else:
@@ -131,8 +134,10 @@ class DroneSimulator:
             self.heading = (self.heading + self.vel_yaw * dt) % 360
 
             # 2. Calculate acceleration based on tilt (Gravity = 9.81)
-            accel_forward = math.sin(math.radians(self.pitch)) * 9.81
-            accel_right = math.sin(math.radians(self.roll)) * 9.81
+            # Increase thrust multiplier to make it snappier and faster
+            thrust_mult = max(1.0, self.forward_speed_setting / 50.0) if hasattr(self, 'forward_speed_setting') else 1.0
+            accel_forward = math.sin(math.radians(self.pitch)) * 9.81 * thrust_mult
+            accel_right = math.sin(math.radians(self.roll)) * 9.81 * thrust_mult
             
             # 3. Apply acceleration to local velocity
             self.vel_forward += accel_forward * dt
@@ -140,7 +145,8 @@ class DroneSimulator:
             self.vel_alt += (target_alt_vel - self.vel_alt) * 3.0 * dt
             
             # 4. Apply Drag (Use exponential decay for numerical stability)
-            drag_coeff = 2.5 # Reduced drag for slightly driftier, more natural feel
+            # Lower drag for much higher top speeds and driftier feel
+            drag_coeff = 0.8 
             self.vel_forward *= math.exp(-drag_coeff * dt)
             self.vel_right *= math.exp(-drag_coeff * dt)
 
@@ -253,8 +259,21 @@ async def simulate_fleet():
                                     if action == "TAKEOFF": d.target_wp = {"lat": d.lat, "lon": d.lon, "alt": 10.0}
                                     if action == "RTL": d.is_rtl = True
                                     if action == "GOTO_WAYPOINTS": d.mission_waypoints = cmd.get("params", {}).get("waypoints", [])
+                                    if action == "SET_MODE" and cmd.get("params", {}).get("mode") == "GUIDED":
+                                        d.is_rtl = False
+                                        # Generate a smart AI scouting pattern
+                                        d.mission_waypoints = [
+                                            {"lat": d.lat + 0.0003, "lon": d.lon, "alt": 12.0},
+                                            {"lat": d.lat + 0.0003, "lon": d.lon + 0.0003, "alt": 12.0},
+                                            {"lat": d.lat - 0.0003, "lon": d.lon + 0.0003, "alt": 12.0},
+                                            {"lat": d.lat - 0.0003, "lon": d.lon, "alt": 12.0},
+                                            {"lat": d.lat, "lon": d.lon, "alt": 12.0} # return to start of search
+                                        ]
+                                        d.target_wp = None
                                     if action == "MANUAL_CONTROL":
                                         d.active_inputs = cmd.get("params", {}).get("inputs", [])
+                                        if "forward_speed" in cmd.get("params", {}):
+                                            d.forward_speed_setting = cmd.get("params")["forward_speed"]
                     except: pass
 
                 asyncio.create_task(handle_commands())

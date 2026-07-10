@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased]
+### Added
+- **AI Guided Scouting**: Implemented 'GUIDED MISSION' button logic to autonomously generate and execute a 4-point square search pattern over the field.
+- **Dynamic Speed Control**: Manual flight control physics now accurately interpret and apply the frontend's Forward Speed settings for realistic thrust scaling.
+
+### Changed
+- **Dark Theme Overhaul**: Darkened the main dashboard to a stealthier, professional aesthetic (using `#0a0a0c` and `#141517` backgrounds).
+- **Compact UI Layout**: Significantly reduced padding, gaps, and sizes in the `Sidebar`, `TelemetryPanel`, and `ControllerPanel` for a more tactical, data-dense layout.
+
+### Fixed
+- **Simulator Physics**: Greatly reduced the aerodynamic drag coefficient in `mock_telemetry.py` from 2.5 to 0.8, allowing the drone to reach proper top speeds without struggling.
+- **RTL Altitude Bug**: Fixed a critical simulation bug where the drone would get stuck bouncing at 15m altitude during a Return-to-Launch sequence instead of landing and disarming.
+
 ## [1.1.0] - 2026-06-07
 ### Added
 - **ArduPilot SITL Integration:** Replaced mock telemetry with a real-time MAVLink bridge.
