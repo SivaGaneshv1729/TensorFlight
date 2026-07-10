@@ -12,6 +12,19 @@ import Scene from './canvas/Scene'
 import AIOverlay from './components/AIOverlay'
 import { VIEW_CONFIGS } from './components/ViewComponents'
 import AnalyticsDashboard from './components/AnalyticsDashboard'
+import { ResponsiveGridLayout } from 'react-grid-layout'
+import 'react-grid-layout/css/styles.css'
+import 'react-resizable/css/styles.css'
+import { GripHorizontal } from 'lucide-react'
+
+const DEFAULT_LAYOUT = [
+  { i: 'camera-feeds', x: 0, y: 0, w: 2, h: 7 },
+  { i: 'main-view', x: 2, y: 0, w: 7, h: 7 },
+  { i: 'sidebar', x: 9, y: 0, w: 3, h: 7 },
+  { i: 'telemetry', x: 0, y: 7, w: 5, h: 3 },
+  { i: 'settings', x: 5, y: 7, w: 4, h: 3 },
+  { i: 'controller', x: 9, y: 7, w: 3, h: 3 }
+]
 
 // PERF: Lazy-load heavy MapView+Leaflet bundle only when Map tab is active
 const MapView = lazy(() => import('./components/MapView'))
@@ -67,6 +80,29 @@ function App() {
   const [activeTab, setActiveTab] = useState('Controler')
   const mainViewId = useTelemetryStore(s => s.mainViewId)
   
+  const [layouts, setLayouts] = useState(() => {
+    const saved = localStorage.getItem('agrihud-layout')
+    return saved ? JSON.parse(saved) : { lg: DEFAULT_LAYOUT }
+  })
+
+  const [rowHeight, setRowHeight] = useState(60)
+
+  React.useEffect(() => {
+    const calcRowHeight = () => {
+      // Viewport height (100vh) - Navbar (60px) - padding (32px) - 9 gaps (16px * 9 = 144px) / 10 rows
+      const availableHeight = window.innerHeight - 60 - 32 - 144
+      setRowHeight(Math.max(20, availableHeight / 10))
+    }
+    calcRowHeight()
+    window.addEventListener('resize', calcRowHeight)
+    return () => window.removeEventListener('resize', calcRowHeight)
+  }, [])
+
+  const onLayoutChange = (layout, layouts) => {
+    setLayouts(layouts)
+    localStorage.setItem('agrihud-layout', JSON.stringify(layouts))
+  }
+  
   return (
     <div ref={container} className="h-screen w-screen bg-[#282a2e] flex flex-col font-sans text-gray-200 overflow-hidden">
        {/* 1. TOP NAVBAR */}
@@ -74,39 +110,80 @@ function App() {
        
        {/* 2. MAIN CONTENT AREA */}
        {activeTab === 'Controler' && (
-         <div className="flex-1 p-4 grid grid-cols-12 grid-rows-10 gap-4 min-h-0 bg-[#282a2e] overflow-hidden">
-            
-            {/* Top Left (Drone Views) */}
-            <div className="col-span-2 row-span-7 bg-[#34373a] rounded-lg p-3 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
-               <div className="text-white font-bold mb-3 pl-1 shrink-0">Camera Feeds</div>
-               <DroneViews />
-            </div>
+         <div className="flex-1 p-4 min-h-0 bg-[#282a2e] overflow-hidden">
+            <ResponsiveGridLayout
+              className="layout h-full"
+              layouts={layouts}
+              breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
+              cols={{ lg: 12, md: 10, sm: 6, xs: 4, xxs: 2 }}
+              rowHeight={rowHeight}
+              onLayoutChange={onLayoutChange}
+              draggableHandle=".drag-handle"
+              margin={[16, 16]}
+              containerPadding={[0, 0]}
+            >
+              {/* Top Left (Drone Views) */}
+              <div key="camera-feeds" className="bg-[#34373a] rounded-lg flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0 group">
+                 <div className="drag-handle absolute top-0 left-0 right-0 h-6 bg-black/40 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-[100]">
+                   <GripHorizontal size={14} className="text-gray-400" />
+                 </div>
+                 <div className="p-3 pt-6 flex-1 flex flex-col min-h-0">
+                   <div className="text-white font-bold mb-3 pl-1 shrink-0">Camera Feeds</div>
+                   <DroneViews />
+                 </div>
+              </div>
 
-            {/* Top Center (Main Viewport) */}
-            <div className="col-span-7 row-span-7 bg-[#1c1d21] rounded-lg relative overflow-hidden flex flex-col shadow-lg border border-gray-700/30 min-h-0">
-               {React.createElement(VIEW_CONFIGS[mainViewId].Component)}
-            </div>
+              {/* Top Center (Main Viewport) */}
+              <div key="main-view" className="bg-[#1c1d21] rounded-lg flex flex-col shadow-lg border border-gray-700/30 min-h-0 group relative overflow-hidden">
+                 <div className="drag-handle absolute top-0 left-0 right-0 h-6 bg-black/40 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-[100]">
+                   <GripHorizontal size={14} className="text-gray-400" />
+                 </div>
+                 <div className="flex-1 relative overflow-hidden">
+                    {React.createElement(VIEW_CONFIGS[mainViewId].Component)}
+                 </div>
+              </div>
 
-            {/* Top Right (Sidebar - Master Controls) */}
-            <div className="col-span-3 row-span-7 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
-               <Sidebar />
-            </div>
+              {/* Top Right (Sidebar - Master Controls) */}
+              <div key="sidebar" className="bg-[#34373a] rounded-lg flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0 group relative">
+                 <div className="drag-handle absolute top-0 left-0 right-0 h-6 bg-black/40 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-[100]">
+                   <GripHorizontal size={14} className="text-gray-400" />
+                 </div>
+                 <div className="p-5 pt-8 flex-1 overflow-y-auto">
+                    <Sidebar />
+                 </div>
+              </div>
 
-            {/* Bottom Left (Telemetry & Diagnostics) */}
-            <div className="col-span-5 row-span-3 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
-               <TelemetryPanel />
-            </div>
+              {/* Bottom Left (Telemetry & Diagnostics) */}
+              <div key="telemetry" className="bg-[#34373a] rounded-lg flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0 group relative">
+                 <div className="drag-handle absolute top-0 left-0 right-0 h-6 bg-black/40 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-[100]">
+                   <GripHorizontal size={14} className="text-gray-400" />
+                 </div>
+                 <div className="p-5 pt-7 flex-1 min-h-0">
+                    <TelemetryPanel />
+                 </div>
+              </div>
 
-            {/* Bottom Middle (Altitude/Velocity/Settings) */}
-            <div className="col-span-4 row-span-3 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
-               <SettingsPanel />
-            </div>
+              {/* Bottom Middle (Altitude/Velocity/Settings) */}
+              <div key="settings" className="bg-[#34373a] rounded-lg flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0 group relative">
+                 <div className="drag-handle absolute top-0 left-0 right-0 h-6 bg-black/40 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-[100]">
+                   <GripHorizontal size={14} className="text-gray-400" />
+                 </div>
+                 <div className="p-5 pt-7 flex-1 min-h-0">
+                    <SettingsPanel />
+                 </div>
+              </div>
 
-            {/* Bottom Right (Controller D-Pad) */}
-            <div className="col-span-3 row-span-3 bg-[#34373a] rounded-lg p-5 flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0">
-               <ControllerPanel />
-            </div>
+              {/* Bottom Right (Controller D-Pad) */}
+              <div key="controller" className="bg-[#34373a] rounded-lg flex flex-col shadow-lg border border-gray-700/30 overflow-hidden min-h-0 group relative">
+                 <div className="drag-handle absolute top-0 left-0 right-0 h-6 bg-black/40 cursor-grab active:cursor-grabbing opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center z-[100]">
+                   <GripHorizontal size={14} className="text-gray-400" />
+                 </div>
+                 <div className="p-5 pt-7 flex-1 min-h-0">
+                    <ControllerPanel />
+                 </div>
+              </div>
 
+            </ResponsiveGridLayout>
          </div>
        )}
 
