@@ -23,12 +23,12 @@ export default function Sidebar() {
   }
 
   return (
-    <div className="h-full flex flex-col font-sans select-none gap-4 overflow-y-auto no-scrollbar">
+    <div className="h-full flex flex-col font-sans select-none gap-2 overflow-y-auto no-scrollbar">
       
       {/* 1. Fleet / Drone Selector */}
       <div className="shrink-0">
         <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Active Drone</div>
-        <div className="grid grid-cols-3 gap-1.5">
+        <div className="grid grid-cols-3 gap-1">
           {Object.entries(fleet).map(([id, data]) => {
             const bat = data?.drone_state?.battery_percentage ?? 0
             const isActive = id === activeDroneId
@@ -37,7 +37,7 @@ export default function Sidebar() {
               <button
                 key={id}
                 onClick={() => setActiveDroneId(id)}
-                className={`flex flex-col items-center py-2 px-1 rounded-md border text-[9px] font-bold transition-all ${
+                className={`flex flex-col items-center py-1.5 px-1 rounded-md border text-[9px] font-bold transition-all ${
                   isActive 
                     ? 'bg-agri-primary/20 border-agri-primary text-agri-primary' 
                     : 'bg-gray-700/20 border-gray-700 text-gray-400 hover:border-gray-500'
@@ -57,9 +57,9 @@ export default function Sidebar() {
 
       {/* 2. Battery Status */}
       <div className="shrink-0">
-        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Battery Status</div>
-        <div className="border border-gray-600 p-3 relative text-xs bg-black/20 rounded-sm">
-          <div className="flex justify-between items-center text-gray-300 mb-2">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1.5">Battery Status</div>
+        <div className="border border-gray-800/80 p-2 relative text-[10px] bg-black/40 rounded-md">
+          <div className="flex justify-between items-center text-gray-300 mb-1.5">
             <div className="flex items-center gap-2">
               <div className="w-8 h-3 border border-gray-400 rounded-sm p-[1px] relative">
                 <div className="absolute -right-1 top-0.5 w-0.5 h-1.5 bg-gray-400" />
@@ -77,14 +77,14 @@ export default function Sidebar() {
       </div>
 
       {/* 3. Live Stats Strip */}
-      <div className="grid grid-cols-2 gap-2 shrink-0">
-        <div className="bg-black/20 border border-gray-700/50 rounded-md p-2 flex flex-col">
-          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Altitude</span>
-          <span className="text-agri-secondary font-bold text-base">{altitude.toFixed(1)}<span className="text-[9px] text-gray-500 ml-1">m</span></span>
+      <div className="grid grid-cols-2 gap-1 shrink-0">
+        <div className="bg-black/40 border border-gray-800/80 rounded-md p-1.5 flex flex-col">
+          <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest">Altitude</span>
+          <span className="text-agri-secondary font-bold text-sm">{altitude.toFixed(1)}<span className="text-[8px] text-gray-500 ml-1">m</span></span>
         </div>
-        <div className="bg-black/20 border border-gray-700/50 rounded-md p-2 flex flex-col">
-          <span className="text-[9px] text-gray-500 font-bold uppercase tracking-widest">Mode</span>
-          <span className={`font-bold text-sm ${isArmed ? 'text-agri-primary' : 'text-gray-400'}`}>{isArmed ? 'ARMED' : 'IDLE'}</span>
+        <div className="bg-black/40 border border-gray-800/80 rounded-md p-1.5 flex flex-col">
+          <span className="text-[8px] text-gray-500 font-bold uppercase tracking-widest">Mode</span>
+          <span className={`font-bold text-xs ${isArmed ? 'text-agri-primary' : 'text-gray-400'}`}>{isArmed ? 'ARMED' : 'IDLE'}</span>
         </div>
       </div>
 
@@ -93,47 +93,47 @@ export default function Sidebar() {
 
       {/* 4. Master Control */}
       <div className="shrink-0">
-        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2">Master Control</div>
-        <div className="flex gap-2">
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1.5">Master Control</div>
+        <div className="flex gap-1">
           <button 
             onClick={() => sendCommand('ARM')} 
-            className={`flex-1 py-3 text-xs font-bold rounded-md transition-colors border ${isArmed ? 'bg-agri-primary text-agri-bg border-agri-primary shadow-[0_0_12px_rgba(255,140,66,0.4)]' : 'bg-gray-700/30 text-gray-400 border-gray-600 hover:bg-gray-700'}`}
+            className={`flex-1 py-2 text-[10px] font-bold rounded-md transition-colors border ${isArmed ? 'bg-agri-primary text-agri-bg border-agri-primary shadow-[0_0_12px_rgba(255,140,66,0.4)]' : 'bg-gray-700/30 text-gray-400 border-gray-700 hover:bg-gray-700/60'}`}
           >
-            <Play size={14} className="inline mr-1.5" /> {isArmed ? 'ARMED' : 'ARM'}
+            <Play size={12} className="inline mr-1" /> {isArmed ? 'ARMED' : 'ARM'}
           </button>
           <button 
             onClick={() => sendCommand('DISARM')} 
-            className="flex-1 py-3 text-xs font-bold rounded-md bg-gray-700/30 text-red-400 border border-gray-600 hover:bg-red-500/20 transition-colors"
+            className="flex-1 py-2 text-[10px] font-bold rounded-md bg-gray-700/30 text-red-400 border border-gray-700 hover:bg-red-500/20 transition-colors"
           >
-            <Square size={14} className="inline mr-1.5" /> DISARM
+            <Square size={12} className="inline mr-1" /> DISARM
           </button>
         </div>
       </div>
 
       {/* 5. Autopilot FCU */}
       <div className="shrink-0">
-        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-2 flex items-center gap-2">
-          <Navigation2 size={12} className="text-agri-secondary" /> Autopilot FCU
+        <div className="text-gray-400 text-[10px] font-bold uppercase tracking-widest mb-1.5 flex items-center gap-1.5">
+          <Navigation2 size={10} className="text-agri-secondary" /> Autopilot FCU
         </div>
-        <div className="grid grid-cols-2 gap-2 mb-2">
+        <div className="grid grid-cols-2 gap-1 mb-1">
           <button 
             onClick={() => sendCommand('TAKEOFF')}
-            className="bg-gray-700/30 hover:bg-gray-700/50 text-gray-300 border border-gray-600 rounded-md py-3 text-[10px] font-bold transition-colors flex flex-col items-center gap-1"
+            className="bg-gray-700/30 hover:bg-gray-700/50 text-gray-300 border border-gray-700 rounded-md py-2 text-[9px] font-bold transition-colors flex flex-col items-center gap-0.5"
           >
-            <ArrowUp size={14} /> TAKEOFF
+            <ArrowUp size={12} /> TAKEOFF
           </button>
           <button 
             onClick={() => sendCommand('RTL')}
-            className="bg-gray-700/30 hover:bg-gray-700/50 text-gray-300 border border-gray-600 rounded-md py-3 text-[10px] font-bold transition-colors flex flex-col items-center gap-1"
+            className="bg-gray-700/30 hover:bg-gray-700/50 text-gray-300 border border-gray-700 rounded-md py-2 text-[9px] font-bold transition-colors flex flex-col items-center gap-0.5"
           >
-            <Home size={14} /> RTL
+            <Home size={12} /> RTL
           </button>
         </div>
         <button 
           onClick={() => sendCommand('SET_MODE', { mode: 'GUIDED' })}
-          className="w-full bg-agri-secondary/20 hover:bg-agri-secondary/30 text-agri-secondary rounded-md py-3 text-[10px] font-bold transition-colors border border-agri-secondary/40 flex items-center justify-center gap-2"
+          className="w-full bg-agri-secondary/10 hover:bg-agri-secondary/20 text-agri-secondary rounded-md py-2 text-[9px] font-bold transition-colors border border-agri-secondary/40 flex items-center justify-center gap-1.5"
         >
-          <ShieldCheck size={14} /> GUIDED MISSION
+          <ShieldCheck size={12} /> GUIDED MISSION
         </button>
       </div>
 
@@ -170,9 +170,9 @@ export default function Sidebar() {
       {/* 7. Emergency Stop — always at bottom */}
       <button 
         onClick={() => sendCommand('DISARM')}
-        className="shrink-0 w-full py-4 bg-red-950/40 border-2 border-red-600/60 text-red-500 text-xs font-black uppercase tracking-widest rounded-md hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-2 shadow-[inset_0_0_20px_rgba(220,38,38,0.1)]"
+        className="shrink-0 w-full py-2 bg-red-950/40 border border-red-600/60 text-red-500 text-[10px] font-black uppercase tracking-widest rounded-md hover:bg-red-600 hover:text-white transition-all flex items-center justify-center gap-1.5 shadow-[inset_0_0_10px_rgba(220,38,38,0.1)] mt-2"
       >
-        <AlertOctagon size={16} /> EMERGENCY STOP
+        <AlertOctagon size={14} /> EMERGENCY STOP
       </button>
     </div>
   )
