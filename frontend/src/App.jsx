@@ -33,12 +33,10 @@ function TopNavbar({ activeTab, setActiveTab }) {
            <Hexagon size={24} fill="currentColor" className="text-agri-primary" />
            <span className="tracking-wide text-white">AgriHUD</span>
         </div>
-        <div className="flex gap-4 text-sm font-medium text-gray-400">
+         <div className="flex gap-4 text-sm font-medium text-gray-400">
            <button onClick={() => setActiveTab('Controler')} className={`px-4 py-1.5 rounded-sm flex items-center gap-2 shadow-sm font-bold transition-colors ${activeTab === 'Controler' ? 'bg-white text-agri-bg' : 'hover:text-white'}`}>Controler</button>
            <button onClick={() => setActiveTab('Overview')} className={`px-4 py-1.5 rounded-sm flex items-center gap-2 shadow-sm font-bold transition-colors ${activeTab === 'Overview' ? 'bg-white text-agri-bg' : 'hover:text-white'}`}>Overview</button>
            <button onClick={() => setActiveTab('Analytics')} className={`px-4 py-1.5 rounded-sm flex items-center gap-2 shadow-sm font-bold transition-colors ${activeTab === 'Analytics' ? 'bg-white text-agri-bg' : 'hover:text-white'}`}>Analytics</button>
-           <button className="px-4 py-1.5 hover:text-white flex items-center gap-2 transition-colors">Routes</button>
-           <button className="px-4 py-1.5 hover:text-white flex items-center gap-2 transition-colors">All drones</button>
            <button onClick={() => setActiveTab('Map view')} className={`px-4 py-1.5 rounded-sm flex items-center gap-2 shadow-sm font-bold transition-colors ${activeTab === 'Map view' ? 'bg-white text-agri-bg' : 'hover:text-white'}`}>Map view</button>
         </div>
       </div>
